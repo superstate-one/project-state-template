@@ -1,0 +1,16 @@
+id: stripe
+name: Stripe
+purpose: Payment processing for tenant rent collection via bank transfer or card
+phase: backend
+features-using: [F003]
+data-flows:
+  - direction: outbound
+    data: payment intent (amount, currency, tenant metadata)
+  - direction: inbound
+    data: webhook notification (payment success, failure, refund)
+decisions: [D002]
+open-questions: [Q008]
+provenance:
+  - date: 2026-04-09
+    source: feedback/2026-04-09-first-meeting
+    note: Client mentioned wanting to collect rent "through the app somehow"

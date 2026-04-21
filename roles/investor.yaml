@@ -1,0 +1,21 @@
+id: investor
+name: Real Estate Investor
+description: >
+  Individual or entity owning one or more buildings, focused on portfolio
+  performance and ROI rather than day-to-day operations. Typically reviews
+  dashboards weekly and delegates maintenance tasks to a property manager.
+goals:
+  - Track portfolio performance at a glance
+  - Understand cashflow per building and per apartment
+  - Decide where to invest next based on occupancy and return data
+  - Onboard new buildings without manual data entry overhead
+pain-points:
+  - Spreadsheets break as portfolio grows beyond five buildings
+  - No unified view across properties managed by different people
+  - Rent collection is manual and error-prone
+technical-skill: low
+frequency-of-use: weekly
+provenance:
+  - date: 2026-04-09
+    source: feedback/2026-04-09-first-meeting
+    note: Client described their own workflow; owns 12 buildings across Sofia

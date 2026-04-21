@@ -1,0 +1,41 @@
+id: F003
+title: Investor portfolio dashboard
+status: in-prototype
+priority: must-have
+description: >
+  The investor's primary view. Shows all buildings they own with key metrics:
+  total apartments, occupied count, monthly rent income, and vacancy rate per
+  building. A summary row at the top aggregates across the full portfolio.
+  Intended as the landing page after login.
+roles: [investor]
+related-entities: [building, apartment]
+related-rules: [R002]
+acceptance-criteria:
+  - Authenticated investor sees only buildings they own
+  - Each building card shows: address, city, apartment count, occupancy rate, monthly income
+  - Portfolio summary row shows aggregate totals: total buildings, total apartments, total income
+  - Clicking a building navigates to the building detail page
+  - Empty state shown with "Add Building" CTA when investor has no buildings
+  - Monthly income calculation uses apartment.monthly-rent; null rent treated as 0
+edge-cases:
+  - Investor with zero buildings (empty state)
+  - Investor with 1 building
+  - Investor with 50+ buildings (pagination or scrollable list)
+  - Buildings where all apartments are vacant (income = 0)
+  - Mix of occupied and vacant apartments in the same building
+ui-notes: >
+  Card grid layout for buildings. Top summary bar is sticky. No sorting or
+  filtering in MVP — just a flat list in order of acquisition date.
+backend-notes: >
+  Aggregate query per building for income and occupancy. Consider caching for
+  investors with large portfolios.
+open-questions: [Q008]
+provenance:
+  - date: 2026-04-09
+    source: feedback/2026-04-09-first-meeting
+    note: Client described wanting "everything in one place, like a control panel"
+  - date: 2026-04-22
+    source: feedback/2026-04-22-prototype-review
+    note: >
+      Client confirmed monthly income column is essential; R002 added to ensure
+      rent values are valid numbers, not strings or nulls.

@@ -1,0 +1,32 @@
+id: F001
+title: Add a building to the portfolio
+status: in-prototype
+priority: must-have
+description: >
+  An investor can create a new building record by entering its address, city,
+  and apartment count. The building immediately appears in their portfolio
+  dashboard. This is the entry point for onboarding a property into the system.
+roles: [investor]
+related-entities: [building]
+related-rules: [R001]
+acceptance-criteria:
+  - Investor can enter address, city, and apartment count
+  - Apartment count accepts any positive integer (enforced by R001)
+  - Building record is saved and appears on the portfolio dashboard
+  - Clear validation message if required fields are missing
+  - Clear validation message if apartment count is invalid (zero, negative, non-integer)
+edge-cases:
+  - Building with a single apartment
+  - Building with 200+ apartments
+  - Address with special characters (accented letters, hyphens)
+  - Duplicate address submission (same building added twice)
+ui-notes: >
+  Modal dialog on the portfolio dashboard with inline validation. "Add Building"
+  button is the primary CTA. Keep the form short — address, city, apartment count
+  are sufficient for MVP.
+backend-notes: >
+  Building record creation; owner field auto-populated from authenticated session.
+provenance:
+  - date: 2026-04-09
+    source: feedback/2026-04-09-first-meeting
+    note: Client described adding buildings as the first thing a new user would do

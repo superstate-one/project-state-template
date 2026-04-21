@@ -1,0 +1,21 @@
+id: acme-realestate
+name: Acme Real Estate Management Platform
+client: Acme Holdings
+status: prototype
+outcome: null
+schema-version: "0.5"
+created: 2026-04-09
+last-updated: 2026-04-22
+current-owner: kaloian
+industry: real-estate
+summary: >
+  A property management platform for real estate investors who own multiple
+  buildings. Investors track portfolio performance, manage buildings and
+  apartments, collect rent, and monitor cashflow — all in one place. The
+  platform replaces spreadsheets and disconnected tools with a unified,
+  role-aware dashboard. A property manager role handles day-to-day operations
+  on behalf of investors.
+strategic-context:
+  client-size: small-enterprise
+  deal-value-range: mid
+lessons-learned: []

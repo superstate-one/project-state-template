@@ -1,0 +1,37 @@
+id: building
+name: Building
+description: A single physical property owned by an investor, containing one or more apartments.
+fictional-in-prototype: true
+fields:
+  - name: id
+    type: uuid
+    required: true
+  - name: address
+    type: string
+    required: true
+  - name: city
+    type: string
+    required: true
+  - name: apartment-count
+    type: integer
+    required: true
+    constraints: [R001]
+  - name: owner
+    type: reference
+    references: investor
+    required: true
+  - name: acquired-date
+    type: date
+    required: false
+  - name: notes
+    type: text
+    required: false
+relationships:
+  - type: one-to-many
+    to: apartment
+  - type: many-to-one
+    to: investor
+provenance:
+  - date: 2026-04-09
+    source: feedback/2026-04-09-first-meeting
+    note: Core entity; client described buildings as the primary unit of ownership

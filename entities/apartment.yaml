@@ -1,0 +1,43 @@
+id: apartment
+name: Apartment
+description: >
+  An individual rentable unit within a building. Has its own rent amount,
+  occupancy status, and tenant association.
+fictional-in-prototype: true
+fields:
+  - name: id
+    type: uuid
+    required: true
+  - name: unit-number
+    type: string
+    required: true
+  - name: floor
+    type: integer
+    required: false
+  - name: bedrooms
+    type: integer
+    required: true
+  - name: monthly-rent
+    type: float
+    required: true
+    constraints: [R002]
+  - name: is-occupied
+    type: boolean
+    required: true
+  - name: building
+    type: reference
+    references: building
+    required: true
+  - name: tenant-name
+    type: string
+    required: false
+relationships:
+  - type: many-to-one
+    to: building
+provenance:
+  - date: 2026-04-09
+    source: feedback/2026-04-09-first-meeting
+    note: Emerged from discussion of building structure; each building has many units
+  - date: 2026-04-22
+    source: feedback/2026-04-22-prototype-review
+    note: monthly-rent field added after client demonstrated rent-tracking workflow

@@ -1,0 +1,42 @@
+id: R002
+rule: Monthly rent must be a positive number
+rationale: >
+  The portfolio dashboard calculates per-building and total income from
+  apartment.monthly-rent. A zero or negative value would silently corrupt
+  income figures. A null value must be treated as "not set" (excluded from
+  sums), never as zero rent.
+enforced-in-features: [F003]
+enforced-in-entities:
+  - entity: apartment
+    field: monthly-rent
+test-scenarios:
+  - input: 850.00
+    expected: accepted
+    category: typical-valid
+  - input: 1
+    expected: accepted
+    category: minimum-valid
+  - input: 0
+    expected: rejected with clear error message
+    category: boundary-invalid
+  - input: -200
+    expected: rejected
+    category: negative-invalid
+  - input: "eight hundred"
+    expected: rejected
+    category: type-invalid
+  - input: null
+    expected: accepted as "not set"; excluded from income sums
+    category: null-allowed
+severity: important
+logic-gap-probes: >
+  Testing agent should probe: entering rent as a string with currency symbol
+  ("€850"), entering with comma as decimal separator ("850,00"), pasting from
+  a spreadsheet with trailing spaces, and entering a very large number (999999)
+  to verify no silent overflow.
+provenance:
+  - date: 2026-04-22
+    source: feedback/2026-04-22-prototype-review
+    note: >
+      Client asked "what happens if I don't enter rent for a new apartment?"
+      Prompted rule definition to prevent dashboard income miscalculation.

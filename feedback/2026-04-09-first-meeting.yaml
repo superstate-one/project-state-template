@@ -1,0 +1,52 @@
+id: 2026-04-09-first-meeting
+date: 2026-04-09
+type: voice-interview
+participants:
+  - client: acme-holdings-ceo
+  - us: kaloian
+raw-attachments: feedback/attachments/2026-04-09-first-meeting/
+summary: >
+  First discovery meeting with the client. Conducted via AI voice agent.
+  Client described their real estate portfolio (12 buildings in Sofia),
+  their current workflow (spreadsheets and phone calls), and their main
+  frustrations. Described the investor role in detail. Mentioned wanting
+  to upload spreadsheets for apartment data. Identified buildings and
+  apartments as the core entities. Portfolio dashboard was described as
+  the primary view. No mention of a property manager role yet.
+extracted-items:
+  - type: new-feature
+    target: F001
+    change: Add a building to the portfolio
+    change-class: direct
+    status-in-diff: accepted
+  - type: new-feature
+    target: F002
+    change: Bulk import apartments (CSV mentioned as desirable)
+    change-class: direct
+    status-in-diff: accepted
+  - type: new-feature
+    target: F003
+    change: Investor portfolio dashboard
+    change-class: direct
+    status-in-diff: accepted
+  - type: new-role
+    target: investor
+    change: Create investor role
+    change-class: direct
+    status-in-diff: accepted
+  - type: new-entity
+    target: building
+    change: Create building entity
+    change-class: direct
+    status-in-diff: accepted
+  - type: new-entity
+    target: apartment
+    change: Create apartment entity
+    change-class: direct
+    status-in-diff: accepted
+  - type: new-question
+    target: Q007
+    change: Confirm CSV import is wanted; get sample file
+    change-class: direct
+    status-in-diff: accepted
+status: processed

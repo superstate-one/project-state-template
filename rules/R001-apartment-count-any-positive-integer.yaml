@@ -1,0 +1,51 @@
+id: R001
+rule: Apartment count must accept any positive integer
+rationale: >
+  Real buildings have non-round apartment counts — 28, 47, 133. Any fixed
+  dropdown or constrained list will fail real-world cases. The input must be
+  a free text field accepting any integer greater than zero.
+enforced-in-features: [F001, F002]
+enforced-in-entities:
+  - entity: building
+    field: apartment-count
+test-scenarios:
+  - input: 28
+    expected: accepted
+    category: typical-non-round
+  - input: 1
+    expected: accepted
+    category: minimum-valid
+  - input: 133
+    expected: accepted
+    category: large-non-round
+  - input: 10000
+    expected: accepted
+    category: large-valid
+  - input: 0
+    expected: rejected with clear error message
+    category: boundary-invalid
+  - input: -5
+    expected: rejected
+    category: negative-invalid
+  - input: "twenty"
+    expected: rejected
+    category: type-invalid
+  - input: 1.5
+    expected: rejected
+    category: non-integer-invalid
+  - input: null
+    expected: rejected
+    category: missing-required
+severity: critical
+logic-gap-probes: >
+  Testing agent should specifically probe: very large numbers (10000+), numbers
+  with commas or periods (e.g. "1,500" or "28.0"), whitespace around the number
+  (" 28 "), values pasted from a spreadsheet cell (may include formatting),
+  and negative numbers with a space before the minus sign ("- 5").
+provenance:
+  - date: 2026-04-22
+    source: feedback/2026-04-22-prototype-review
+    note: >
+      Client showed their building with 28 apartments; the prototype had a
+      dropdown limited to 10/20/30/50. Client said "none of these are right."
+      Rule added immediately.

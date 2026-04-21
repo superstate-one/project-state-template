@@ -1,0 +1,56 @@
+id: add-first-building
+name: Investor adds their first building
+description: >
+  End-to-end journey of a new investor onboarding their first building into
+  the platform, from landing on an empty dashboard to seeing the building with
+  its apartments displayed. Covers both manual entry and optional CSV import.
+role: investor
+trigger: User has completed signup and is authenticated; dashboard is empty
+preconditions:
+  - User is authenticated as investor
+  - User has zero buildings in their portfolio
+steps:
+  - step: 1
+    action: User clicks "Add Building" on the empty dashboard
+    feature: F001
+    expected-ui: Building creation modal appears with address, city, and apartment count fields
+  - step: 2
+    action: User enters building address, city, and apartment count (e.g. 28)
+    feature: F001
+    rules-enforced: [R001]
+    expected-ui: Inline validation feedback on apartment count; no artificial limits shown
+  - step: 3
+    action: User submits the building creation form
+    feature: F001
+    expected-ui: Modal closes; user is navigated to the new building's detail page
+  - step: 4
+    action: User triggers bulk apartment import from the building detail page
+    feature: F002
+    expected-ui: Two-step import flow appears (upload or skip → preview)
+  - step: 5
+    action: User optionally uploads a CSV with apartment details, then confirms
+    feature: F002
+    expected-ui: Preview table shows parsed apartments; user confirms; apartments are saved
+  - step: 6
+    action: User navigates back to the portfolio dashboard
+    feature: F003
+    expected-ui: Dashboard shows one building card with correct address and occupancy data
+success-criteria:
+  - Building record exists with correct address, city, and apartment count
+  - Apartment records exist linked to the building
+  - Portfolio dashboard shows the new building with accurate metrics
+  - No errors displayed at any step
+failure-modes:
+  - User enters invalid apartment count (0, negative, "twenty") → R001 error at step 2; form blocked
+  - CSV is malformed or missing required columns → parse error shown at preview step; upload retryable
+  - Network failure during save → retry prompt shown; no partial state persisted
+  - User abandons at preview step → no apartments saved; building record still exists
+test-persona-hints: >
+  Three personas to cover: (1) cautious first-timer who reads every label and
+  tooltip before clicking; (2) experienced user who tabs through fields quickly
+  and uploads a pre-prepared CSV; (3) non-technical investor whose assistant
+  prepared the CSV and who may misread field labels or submit the form twice.
+provenance:
+  - date: 2026-04-11
+    source: feedback/2026-04-09-first-meeting
+    note: Derived from client description of onboarding a new building from scratch
