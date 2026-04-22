@@ -93,8 +93,48 @@ Roles, entities, flows, integrations use slugs. IDs are never reused.
 - **Case 3 — Change of mind:** contradicts existing state; client changed direction.
 - **Case 4 — Correction:** old entry was never correct (error or misinterpretation).
 
+## Status transitions
+
+When a question is answered: set `status: answered`, fill `answered: <date>`
+and `answer-summary: <text>`. Keep the original body intact. Never delete
+the file.
+
+When a decision becomes obsolete: set `status: obsolete` and append a dated
+note to Provenance explaining what replaced it. Never delete.
+
+When a feature is rejected or deferred: set `status: rejected | deferred`.
+The entry stays in the repo forever; generators skip it by default.
+
+When a risk is closed: set `status: closed`. Do not delete. Closed risks
+remain available to the pattern library at archival.
+
 ## Commit message format
 
 `<entry-ID>: <summary> per <source>`
 
 For cross-domain changes, @-mention the relevant owner.
+
+## First-run setup (when template is cloned for a new project)
+
+When this repository is opened for the first time after cloning from the
+template (detected by `project.yaml` still containing placeholder values
+like "acme-realestate" or "Acme Holdings"), before processing any input:
+
+1. Ask the user for: project name, client name, industry, current owner,
+   and a 1-paragraph summary.
+2. Update `project.yaml` with these values. Set `status: discovery`,
+   `created` to today's date, `outcome: null`, `lessons-learned: []`.
+3. Update `README.md`: replace the "How to use this template" section
+   with a project-specific "About this project" section that states
+   the client, industry, and summary. Leave the rest of the README
+   (folder layout, entry types, workflow, key rules) intact.
+4. Ask whether the user wants to clear the example entries (delete all
+   files in `roles/`, `entities/`, `features/`, `flows/`, `rules/`,
+   `integrations/`, `decisions/`, `questions/`, `feedback/`, `risks/`
+   and reset `state-index.yaml` to empty) or keep them as reference.
+   Default: clear.
+5. If cleared, also clear `state-index.yaml`: reset to schema header
+   plus empty `entries: []`.
+6. Commit with message: `init: project setup for <client-name>`.
+
+Do this once, on first interaction with a fresh clone.

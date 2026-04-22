@@ -210,7 +210,7 @@ The difference between Case 3 and Case 4 is the story, not the mechanism. Case 3
 
 ## 6. Schema — Entry Types and Structure
 
-Eleven entry types. Each type is a folder with files of a specific structure. IDs follow **one letter + three digits** (`F001`, `R001`, `K001`). IDs are sequential within a type and never reused.
+Twelve entry types. Each type is a folder with files of a specific structure. IDs follow **one letter + three digits** (`F001`, `R001`, `K001`). IDs are sequential within a type and never reused.
 
 | Entry Type | Format | ID Prefix | Purpose |
 |---|---|---|---|
@@ -225,6 +225,7 @@ Eleven entry types. Each type is a folder with files of a specific structure. ID
 | `questions/` | Markdown + frontmatter | `Q` | Open questions to resolve |
 | `feedback/` | YAML + attachments folder | — (date-slug) | Raw feedback sessions |
 | `risks/` | Markdown + frontmatter | `K` | Known risks |
+| `stakeholders/` | Markdown + frontmatter | `S` | People at the client who matter |
 
 Roles, entities, flows, and integrations use slug-based IDs because they're identified by name. Features, rules, decisions, questions, and risks use letter+digit IDs because they accumulate and need stable short references.
 
@@ -306,16 +307,27 @@ summary: >
 strategic-context:
   client-size: small-enterprise
   deal-value-range: mid
+commercial:
+  # Populated during discovery. Reference stakeholders by ID.
+  # All fields optional until known.
+  decision-maker: S001            # stakeholder ID, or null
+  economic-buyer: S001            # stakeholder ID, or null
+  champion: S001                  # stakeholder ID, or null
+  blockers: []                    # list of stakeholder IDs
+  signing-representative: null    # who will sign the contract, when known
 lessons-learned: []            # filled in when moving to 'closed'
 ```
 
-**Required:** `id`, `name`, `client`, `status`, `schema-version`, `created`, `current-owner`, `industry`, `summary`
+**Required:** `id`, `name`, `client`, `status`, `schema-version`, `created`, `current-owner`, `industry`, `summary`. The `commercial` block itself is required, but all fields within it are optional and default to null or empty lists.
 
 **Notes:**
 - Terminal state is `closed`. The `outcome` field records whether the project was delivered or lost.
 - Lost projects are still archived (moved to archive folder) and contribute to the pattern library.
 - `archived` is a filesystem location, not a status.
 - `lessons-learned` is proposed by Claude at close; PM reviews and edits.
+- The `commercial` block references `stakeholders/` entry IDs. When a
+  stakeholder entry is deleted or merged, the state-updater propagates
+  the change here.
 
 ### 8.2 `roles/<role-slug>.yaml`
 
@@ -334,11 +346,65 @@ pain-points:
   - No unified view across properties
 technical-skill: low | medium | high
 frequency-of-use: daily | weekly | monthly | occasional
+representative-personas:
+  - id: persona-jane
+    name: Jane Chen
+    inferred: false
+    one-line-summary: Cautious 58-year-old investor, owns 4 buildings, distrusts new software
+    background: >
+      Multi-sentence narrative. Where they come from, what their day looks
+      like, relevant history with software, who influences their decisions.
+      The narrative carries most of the behavioral weight for testing agents.
+    demographics:
+      age-range: 55-65
+      location: Sofia, Bulgaria
+      portfolio-size: 4 buildings
+      experience-level: 5 years as investor
+    technical-comfort:
+      level: low | medium | high
+      uses: email, Excel, online banking
+      avoids: mobile-only apps, auto-charge to card
+      typical-failure-mode: closes the browser when something looks wrong
+    motivations:
+      primary: Stable retirement income
+      secondary: Protect capital from inflation
+      emotional: Feel competent and in control
+    anti-goals:
+      - Does not want to manage tenants directly
+      - Refuses to give credit card details to a new service
+    behavioral-tics:
+      - Reads every label before clicking
+      - Pastes from Excel frequently
+      - Will call her son if a screen looks unfamiliar
+    success-looks-like: >
+      One-paragraph description of what a good session looks like for them.
+    failure-looks-like: >
+      One-paragraph description of how they fail. Often silent failure
+      (abandonment) rather than loud failure (error).
+    quotes:
+      - source: feedback/2026-04-09-first-meeting
+        quote: "5-10 word verbatim from the transcript that grounds this persona"
+    test-implications:
+      - Specific testing scenarios this persona drives
+      - Patterns to probe that would only matter for this persona
 provenance:
   - date: 2026-04-09
     source: feedback/2026-04-09-first-meeting
     note: Client described their own workflow
 ```
+
+**About personas:**
+
+- Target 3-5 personas per role. Fewer than 3 misses variation; more than 5
+  becomes hard for testing agents to keep distinct.
+- `inferred: true` means the persona was proposed without direct client
+  source material. These must be validated by the PM before being treated
+  as canonical. Readiness check (G2) warns if any role has only inferred
+  personas.
+- Every persona should have at least one `quotes` entry linking to source
+  material. No quotes → persona is `inferred: true` by default.
+- `test-implications` is the bridge to the test plan generator. Without
+  it, personas inform nothing mechanical.
 
 **Required:** `id`, `name`, `description`
 
@@ -722,7 +788,83 @@ Any shape changes become state entries and the build brief regenerates.
 
 Severity scale is independent from feature `priority` and rule `severity`. The three scales don't map to each other. This is intentional — risks, features, and rules are different kinds of things.
 
-### 8.12 `state-index.yaml`
+### 8.12 `stakeholders/S<NNN>-<slug>.md`
+
+People at the client who matter to the project. Different from `roles/`
+— roles are user personas for the product. Stakeholders are specific
+named humans at the client organization.
+
+Markdown with YAML frontmatter.
+
+```markdown
+---
+id: S001
+name: Jane Chen
+title: Founder & CEO
+company: Acme Holdings
+email: jane@acme-example.com        # optional, omit if sensitive
+phone: null                         # optional
+
+# Role flags — any combination can be true
+is-decision-maker: true             # final sign-off authority
+is-economic-buyer: true             # controls the budget
+is-champion: true                   # actively wants this to happen
+is-interviewee: true                # participated in discovery
+is-user: false                      # will personally use the product
+is-blocker: false                   # skeptical, could derail
+
+# Qualitative assessment
+relationship-temperature: cold | cool | neutral | warm | hot
+influence-on-decision: low | medium | high
+---
+
+## Background
+
+Free-text. Who they are, how long at the company, relevant history.
+What they've worked with before. Who they report to.
+
+## What they care about
+
+Bullet list of priorities, values, things they bring up.
+
+## What they worry about
+
+Bullet list of concerns, objections, risks from their perspective.
+
+## Quotes
+
+- YYYY-MM-DD: "verbatim quote" (source: feedback/<session-id>)
+
+## Provenance
+
+- YYYY-MM-DD: how we learned about them, which session
+```
+
+**Required frontmatter:** `id`, `name`.
+
+**Flag semantics:**
+
+- `is-decision-maker` — has the final say on "yes, sign the contract"
+- `is-economic-buyer` — controls the budget; may or may not be the decision maker
+- `is-champion` — internal advocate; actively wants the project to happen
+- `is-interviewee` — participated in discovery meetings or voice interviews
+- `is-user` — will personally use the delivered product
+- `is-blocker` — skeptical, opposed, or holds veto power against the project
+
+One person can have multiple flags. Most commonly the founder of a small
+company is `is-decision-maker + is-economic-buyer + is-champion + is-interviewee`
+all at once.
+
+**When stakeholders are created:** during the discovery phase, as people
+get named. The state-updater should surface mentions like "I'd need to
+check with X", "Y controls the budget", "Z is really excited about this"
+as candidates for new or updated stakeholder entries.
+
+**Stakeholders never get merged with roles.** They are different things.
+A stakeholder might inform a persona (e.g., Jane's real profile becomes
+an investor persona), but the stakeholder entry stays distinct.
+
+### 8.13 `state-index.yaml`
 
 The pointer map maintained by the state-updater as part of every diff. The state-updater reads this first on every run to decide what to load.
 
@@ -784,6 +926,15 @@ entries:
       features: [F002]
     referenced-by:
       features: [F002]
+
+  - id: S001
+    type: stakeholder
+    path: stakeholders/S001-jane-chen.md
+    title: Jane Chen — Founder & CEO
+    status: active
+    flags: [is-decision-maker, is-economic-buyer, is-champion, is-interviewee]
+    references: {}
+    referenced-by: {}
 # ... and so on for every entry
 ```
 
@@ -1720,6 +1871,36 @@ This document describes schema **v0.5**.
 - Additive changes bump the minor version: 0.5 → 0.6
 - Each project records its schema version in `.claude/schema-version.yaml`
 - The first 3 projects will drive schema evolution — expected and healthy
+
+### Changes from v0.5 to v0.6
+
+- Added: `representative-personas` field to `roles/` schema. 3-5 personas
+  per role, each with background, technical-comfort, motivations,
+  anti-goals, behavioral-tics, and test-implications. Personas are the
+  bridge from `roles/` to Layer 2 testing. (§8.2)
+- Added: `stakeholders/` as a new entry type (prefix `S`). Tracks named
+  humans at the client organization with decision-maker, economic-buyer,
+  champion, interviewee, user, and blocker flags. Distinct from roles.
+  (§8.12)
+- Added: `commercial` section in `project.yaml` referencing stakeholder
+  IDs for decision-maker, economic-buyer, champion, blockers, and
+  signing-representative. All fields optional. (§8.1)
+- Added: state-updater scans for persona-source material and stakeholder
+  mentions as distinct extraction categories. Rules enforce evidence-based
+  flag setting. (Appendix A)
+- Added: first-run setup instruction in CLAUDE.md — when the template is
+  cloned, Claude customizes `project.yaml` and `README.md` for the new
+  project on first interaction.
+- Added: status-transitions section in CLAUDE.md covering how to
+  transition questions, decisions, features, and risks through their
+  status values.
+- Fixed: R001 index entry incorrectly listed `apartment` in `referenced-by`.
+  Only `building` references R001.
+- Removed: duplicate copy of the implementation guide at repo root.
+  Only `docs/implementation-guide.md` remains.
+- Deferred (not in v0.6): company state repo, offer generator, contract
+  generator, contract-acceptance-criteria on features. To be revisited
+  after project state has been exercised on at least one real project.
 
 ### Changes from v0.4 to v0.5
 

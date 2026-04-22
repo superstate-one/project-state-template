@@ -1,4 +1,4 @@
-schema-version: "0.5"
+schema-version: "0.6"
 generated-at: 2026-04-22T18:00:00Z
 project-id: acme-realestate
 entries:
@@ -132,7 +132,7 @@ entries:
     referenced-by:
       features: [F001, F002]
       flows: [add-first-building]
-      entities: [building, apartment]
+      entities: [building]
 
   - id: R002
     type: rule
@@ -159,6 +159,17 @@ entries:
       questions: [Q008]
     referenced-by:
       decisions: [D002]
+
+  # ── Stakeholders ──────────────────────────────────────────────────────────
+
+  - id: S001
+    type: stakeholder
+    path: stakeholders/S001-jane-chen.md
+    title: Jane Chen — Founder & CEO
+    status: active
+    flags: [is-decision-maker, is-economic-buyer, is-champion, is-interviewee]
+    references: {}
+    referenced-by: {}
 
   # ── Decisions ─────────────────────────────────────────────────────────────
 

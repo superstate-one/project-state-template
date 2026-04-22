@@ -15,6 +15,29 @@ pain-points:
   - Rent collection is manual and error-prone
 technical-skill: low
 frequency-of-use: weekly
+representative-personas:
+  - id: persona-jane
+    name: Jane (composite — example persona)
+    inferred: true
+    one-line-summary: Cautious older investor, owns 4 buildings, distrusts new software
+    background: >
+      This is an illustrative persona attached to the example investor role.
+      Replace or delete when the real client's investor users are described.
+    technical-comfort:
+      level: low
+      avoids: mobile-only apps, unfamiliar SaaS products
+    motivations:
+      primary: Stable rental income
+    anti-goals:
+      - Will not give credit card details to a new service
+    behavioral-tics:
+      - Reads every label before clicking
+      - Pastes from Excel frequently
+    test-implications:
+      - Test paste-from-Excel paths
+      - Test confirmation dialogs for clarity
+      - Test error messages for comprehensibility at low technical skill
+    quotes: []
 provenance:
   - date: 2026-04-09
     source: feedback/2026-04-09-first-meeting
