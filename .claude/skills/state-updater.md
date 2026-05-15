@@ -26,7 +26,11 @@ You produce three artifacts for human review. You never commit.
 
 Load `state-index.yaml`. This is your map of every entry in the project.
 If `state-index.yaml` does not exist (fresh repo), scan the entire repo
-and build it from scratch. Otherwise, trust it.
+and build it from scratch. The bootstrapped index goes into the same
+diff as the input-driven changes — do not commit it separately, and do
+not invoke a separate index rebuilder (per CLAUDE.md rule #10, the
+state-updater is the only writer of `state-index.yaml`). Otherwise, trust
+the existing index.
 
 ### Step 2 — Identify directly-affected entries
 
@@ -207,6 +211,12 @@ Populate:
   with `change-class: direct | propagated` and
   `status-in-diff: pending` (status will be updated to accepted /
   rejected / modified based on PM review before the file is written).
+- Top-level `status: pending` while awaiting PM review; flip to
+  `processed` once the diff is approved and committed.
+
+For the canonical field set and shape, mirror the existing examples
+in `feedback/` (e.g. `feedback/2026-04-09-first-meeting.yaml`) — those
+are the authoritative reference until a JSON schema is added.
 
 ### Step 10 — Present to human and iterate
 
