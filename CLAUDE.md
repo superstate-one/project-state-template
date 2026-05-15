@@ -65,6 +65,31 @@ Revert to the last known-good git commit and re-apply lost changes
 one at a time via the state-updater. Do not hand-repair corrupted
 state.
 
+## When the user wants to update from the template
+
+The template (skills, generators, CLAUDE.md, schema, updater script) is
+maintained centrally; project state (roles, entities, features, etc.)
+is local. To pull infrastructure updates without touching project state,
+use `scripts/update-from-template.sh`:
+
+1. Run `scripts/update-from-template.sh` first — this is a dry-run that
+   shows the diff against `template/main` on template-owned paths only.
+   The script self-updates as its first action, so any improvements to
+   the updater itself ship with each update.
+2. If the diff looks correct, re-run with `--apply`. The script stages
+   the template versions of the whitelisted paths.
+3. Review with `git diff --cached` and commit with a message like
+   `template: pull infrastructure updates`.
+
+Project-owned directories (`roles/`, `entities/`, `features/`, `flows/`,
+`rules/`, `decisions/`, `questions/`, `feedback/`, `risks/`,
+`stakeholders/`, `integrations/`, `generated/`) and the `project.yaml` /
+`state-index.yaml` files are never touched by the updater. The full
+whitelist of template-owned paths is at the top of the script.
+
+If the schema major version differs, the updater refuses and points at
+`docs/updating-from-template.md` for migration guidance.
+
 ## File layout
 
 [See `docs/implementation-guide.md` §7.]
