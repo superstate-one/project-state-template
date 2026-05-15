@@ -68,9 +68,11 @@ state.
 ## When the user wants to update from the template
 
 The template (skills, generators, CLAUDE.md, schema, updater script) is
-maintained centrally; project state (roles, entities, features, etc.)
-is local. To pull infrastructure updates without touching project state,
-use `scripts/update-from-template.sh`:
+maintained centrally; project state (roles, entities, features, flows,
+rules, decisions, questions, feedback, risks, stakeholders, integrations,
+generated, project.yaml, state-index.yaml) is local. To pull
+infrastructure updates without touching project state, use
+`scripts/update-from-template.sh`:
 
 1. Run `scripts/update-from-template.sh` first — this is a dry-run that
    shows the diff against `template/main` on template-owned paths only.

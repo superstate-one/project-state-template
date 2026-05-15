@@ -103,7 +103,10 @@ template (added when each breaking bump ships). The typical flow:
 
 - For a brand-new project clone: the template content is already at
   HEAD; no update needed until the template moves.
-- For project state changes (new feature, new rule, etc.): use the
+- For project state changes (new feature, new rule, new role, new
+  entity, new flow, new decision, new question, new risk, new
+  stakeholder, new integration, answered question, status transition):
+  use the
   state-updater skill, not this script.
 - For one-off cherry-picks from another project: do it by hand, not
   through this mechanism.
