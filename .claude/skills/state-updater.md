@@ -261,9 +261,10 @@ deterministic merge script (`scripts/merge-index-patch.py`, no LLM) swaps them
 in by id and refreshes the header timestamp. You physically cannot corrupt
 entries you did not emit.
 
-Each emitted block carries the entry's `confidence` (and, in company-brain
-mode, its `visibility`) alongside the existing `status` / `severity`, so
-verify-claim and access filtering work from the index without opening files.
+Each emitted block carries the entry's `confidence`, its `re-verify-after` when
+set, and (in company-brain mode) its `visibility`, alongside the existing
+`status` / `severity`, so verify-claim and the coherence check's expiry sweep
+(Check 6) work from the index without opening files.
 Populate `references` / `referenced-by` from structured fields only — never
 from prose mentions.
 
@@ -333,10 +334,11 @@ When `project.yaml` has `mode: company-brain`, branch as follows:
   (`company` | `team/<slug>` | `restricted`). Reject any diff that omits it —
   do not guess. Stakeholder entries default to `restricted`. Write `visibility`
   into the index block too.
-- **No deal tracking.** Skip Steps 2c/2d commercial syncing — a brain has no
-  `commercial` section and no decision-maker/economic-buyer fields.
-  Stakeholders here are the company's own people and partners, not deal
-  contacts.
+- **No deal tracking — but stakeholder scanning stays on.** Step 2c applies in
+  full *except* its commercial sub-step (point 4): keep scanning for named
+  people, creating/updating `S###` entries, and setting evidence-based flags —
+  stakeholders here are the company's own people and partners. Skip Step 2d
+  entirely: a brain has no `commercial` section.
 - **Verification** is granted only by a human on `project.yaml`'s `verifiers:`
   list; every verification appends a provenance line (`verified by jane,
   <date>`).

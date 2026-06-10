@@ -16,8 +16,8 @@ policy.
   apply only at the build gate.
 - Entry files loaded on demand for the criteria that need their contents.
 
-Skip `status: rejected | deferred | obsolete` entries throughout (per CLAUDE.md
-rule 17 — deprioritized entries do not gate a phase).
+Skip `status: rejected | deferred | obsolete` entries throughout (per the deprioritized-entries rule
+(docs/implementation-guide.md, Rules for Working with State): rejected/deferred/obsolete entries never gate a phase).
 
 ## State-quality criteria
 

@@ -23,6 +23,7 @@ present, is ignored — only entry blocks are read.
 
 Exit status: 0 on success, 2 on a malformed argument or file.
 """
+import os
 import re
 import sys
 import datetime
@@ -76,6 +77,17 @@ def main(argv):
         sys.stderr.write("error: patch contains no `  - id:` entry blocks\n")
         return 2
 
+    # Warn on duplicate ids within the patch (last block wins, but say so).
+    seen = {}
+    for bid, _ in patch_blocks:
+        seen[bid] = seen.get(bid, 0) + 1
+    dupes = [bid for bid, k in seen.items() if k > 1]
+    if dupes:
+        sys.stderr.write(
+            "warning: duplicate id(s) in patch (last block wins): "
+            + ", ".join(sorted(dupes)) + "\n"
+        )
+
     order = [bid for bid, _ in base_blocks]
     by_id = {bid: blk for bid, blk in base_blocks}
     replaced, added = [], []
@@ -109,7 +121,11 @@ def main(argv):
     if dry:
         sys.stdout.write(result)
     else:
-        open(index_path, "w", encoding="utf-8").write(result)
+        # Atomic write: write a temp file in the same directory, then replace.
+        tmp = index_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(result)
+        os.replace(tmp, index_path)
     return 0
 
 

@@ -25,7 +25,7 @@ project-owned state alone.
 
 - `roles/`, `entities/`, `features/`, `flows/`, `rules/`,
   `decisions/`, `questions/`, `feedback/`, `risks/`, `stakeholders/`,
-  `integrations/`
+  `integrations/`, `sources/`
 - `generated/`
 - `project.yaml`, `state-index.yaml`
 - `README.md` (project-customised during first-run setup)

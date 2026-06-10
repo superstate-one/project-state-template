@@ -4,7 +4,7 @@
 
 This document is the single reference for implementing the Project State system at Superstate. It contains everything needed to understand the concept, set up the infrastructure, and start using it on a real project.
 
-**Version 0.7.** The canonical entry format now lives in `docs/schema.md`; v0.7 added the trust layer, `sources/`, semantic links, per-repo language, and company-brain mode (see CLAUDE.md, `docs/schema.md`, and `docs/modes.md`). The earlier v0.4 → v0.5 changes are listed in the changelog at Section 22. The big ones: `state-index.yaml` now has a full spec (§9.12), a v1 draft of the state-updater prompt is included (Appendix A), the coherence check runs on every commit, rule-to-rule conflict detection has a clear owner, sourcing in extraction reports uses topic + short quote instead of line ranges, project terminal state is simplified to `closed` + `outcome`, and repetition across sections has been cut.
+**Version 0.7.** The canonical entry format lives in `docs/schema.md` and the two modes (project-state, company-brain) in `docs/modes.md`; the live skills under `.claude/skills/` are the authoritative prompts. v0.7 added the trust layer, `sources/`, semantic links, index entry-block patches, per-repo language, and company-brain mode. The full changelog is in §21; this guide carries the design rationale and the conceptual model, not field-level specs.
 
 ---
 
@@ -52,7 +52,7 @@ The team:
 
 The competitive moat is not automation alone — it's taste, judgment, and pattern recognition applied to automated output. The team automates volume with AI agents and uses human experience to select the best output.
 
-The pipeline runs from lead research through AI voice agent discovery interviews, prototype building with coding AI agents, client feedback, backend development, testing, and delivery. The company has 7–10 clients at different stages. Most clients are Bulgarian; all state is maintained in English regardless of client language.
+The pipeline runs from lead research through AI voice agent discovery interviews, prototype building with coding AI agents, client feedback, backend development, testing, and delivery. The company has 7–10 clients at different stages. Most clients are Bulgarian. Language is per-repo: `project.yaml`'s `language` declares the primary content language (absent = `en`); structure (schema keys, IDs, statuses, controlled vocabularies) is always English, content is in the declared language, and quotes and domain terms stay verbatim.
 
 ---
 
@@ -261,7 +261,7 @@ projects/<project-slug>/
 │   │   ├── generate-backend-plan.md
 │   │   └── generate-test-plan.md
 │   ├── skills/
-│   │   ├── state-updater.md              # see Appendix A for v1 draft
+│   │   ├── state-updater.md              # the authoritative state-updater prompt
 │   │   ├── extraction-report.md
 │   │   ├── readiness-check.md
 │   │   ├── coherence-check.md            # runs on every commit
@@ -279,7 +279,7 @@ projects/<project-slug>/
 **Key notes:**
 
 - **Transcripts only, no raw media.** Audio/video is transcribed externally, the source media is discarded, only transcripts are committed. Keeps repo size manageable, avoids Git LFS.
-- **Non-English source material gets both files.** Original transcript (language-suffixed) and English translation. Processing uses the English translation.
+- **Source material is kept verbatim** in `feedback/attachments/` (with language suffixes if a translation exists alongside the original). Skills process in the repo's declared `language` and never translate or "clean" mixed phrases.
 - **`CLAUDE.md` at repo root** is read automatically by Claude Code and Cowork.
 - **`state-index.yaml` is maintained by the state-updater** as part of every diff. No separate rebuilder.
 - **`generated/` has three files.** No PRD, no app-flow, no handoff.
@@ -288,708 +288,113 @@ projects/<project-slug>/
 
 ## 8. Entry Types — Full Specification
 
-### 8.1 `project.yaml`
-
-One per project.
-
-```yaml
-id: acme-realestate
-name: Acme Real Estate Management Platform
-client: Acme Holdings
-status: discovery | spec | prototype | deal-signed | building | testing | delivered | closed
-outcome: delivered | lost | null         # set when status becomes 'closed'
-schema-version: "0.5"
-created: 2026-04-09
-last-updated: 2026-04-09
-current-owner: kaloian
-industry: real-estate
-summary: >
-  One-paragraph description of what this project is and why it exists.
-strategic-context:
-  client-size: small-enterprise
-  deal-value-range: mid
-commercial:
-  # Populated during discovery. Reference stakeholders by ID.
-  # All fields optional until known.
-  decision-maker: S001            # stakeholder ID, or null
-  economic-buyer: S001            # stakeholder ID, or null
-  champion: S001                  # stakeholder ID, or null
-  blockers: []                    # list of stakeholder IDs
-  signing-representative: null    # who will sign the contract, when known
-lessons-learned: []            # filled in when moving to 'closed'
-```
-
-**Required:** `id`, `name`, `client`, `status`, `schema-version`, `created`, `current-owner`, `industry`, `summary`. The `commercial` block itself is required, but all fields within it are optional and default to null or empty lists.
-
-**Notes:**
-- Terminal state is `closed`. The `outcome` field records whether the project was delivered or lost.
-- Lost projects are still archived (moved to archive folder) and contribute to the pattern library.
-- `archived` is a filesystem location, not a status.
-- `lessons-learned` is proposed by Claude at close; PM reviews and edits.
-- The `commercial` block references `stakeholders/` entry IDs. When a
-  stakeholder entry is deleted or merged, the state-updater propagates
-  the change here.
-
-### 8.2 `roles/<role-slug>.yaml`
-
-```yaml
-id: investor
-name: Real Estate Investor
-description: >
-  Individual or entity owning multiple buildings, focused on ROI and
-  portfolio management rather than day-to-day operations.
-goals:
-  - Track portfolio performance at a glance
-  - Understand cashflow per building
-  - Decide where to invest next
-pain-points:
-  - Spreadsheets break as portfolio grows
-  - No unified view across properties
-technical-skill: low | medium | high
-frequency-of-use: daily | weekly | monthly | occasional
-representative-personas:
-  - id: persona-jane
-    name: Jane Chen
-    confidence: asserted        # quote-backed; an AI-guessed persona is `derived`
-    one-line-summary: Cautious 58-year-old investor, owns 4 buildings, distrusts new software
-    background: >
-      Multi-sentence narrative. Where they come from, what their day looks
-      like, relevant history with software, who influences their decisions.
-      The narrative carries most of the behavioral weight for testing agents.
-    demographics:
-      age-range: 55-65
-      location: Sofia, Bulgaria
-      portfolio-size: 4 buildings
-      experience-level: 5 years as investor
-    technical-comfort:
-      level: low | medium | high
-      uses: email, Excel, online banking
-      avoids: mobile-only apps, auto-charge to card
-      typical-failure-mode: closes the browser when something looks wrong
-    motivations:
-      primary: Stable retirement income
-      secondary: Protect capital from inflation
-      emotional: Feel competent and in control
-    anti-goals:
-      - Does not want to manage tenants directly
-      - Refuses to give credit card details to a new service
-    behavioral-tics:
-      - Reads every label before clicking
-      - Pastes from Excel frequently
-      - Will call her son if a screen looks unfamiliar
-    success-looks-like: >
-      One-paragraph description of what a good session looks like for them.
-    failure-looks-like: >
-      One-paragraph description of how they fail. Often silent failure
-      (abandonment) rather than loud failure (error).
-    quotes:
-      - source: feedback/2026-04-09-first-meeting
-        quote: "5-10 word verbatim from the transcript that grounds this persona"
-    test-implications:
-      - Specific testing scenarios this persona drives
-      - Patterns to probe that would only matter for this persona
-provenance:
-  - date: 2026-04-09
-    source: feedback/2026-04-09-first-meeting
-    note: Client described their own workflow
-```
-
-**About personas:**
-
-- Target 3-5 personas per role. Fewer than 3 misses variation; more than 5
-  becomes hard for testing agents to keep distinct.
-- `confidence: derived` means the persona was proposed without direct
-  client source material (the old `inferred: true`). These must be
-  validated by the PM before being treated as canonical. Readiness check
-  (G2) warns if any role has only `derived` personas. The `inferred` field
-  is removed in v0.7: skills read a legacy `inferred` as an alias
-  (`true` → `derived`, `false` → `asserted`) and never write it again.
-- Every persona should have at least one `quotes` entry linking to source
-  material. No quotes → persona is `confidence: derived` by default.
-- `test-implications` is the bridge to the test plan generator. Without
-  it, personas inform nothing mechanical.
-
-**Required:** `id`, `name`, `description`
-
-### 8.3 `entities/<entity-slug>.yaml`
-
-```yaml
-id: building
-name: Building
-description: A single physical property owned by an investor.
-fictional-in-prototype: true
-fields:
-  - name: id
-    type: uuid
-    required: true
-  - name: address
-    type: string
-    required: true
-  - name: apartment-count
-    type: integer
-    required: true
-    constraints: [R001]
-  - name: owner
-    type: reference
-    references: investor
-    required: true
-  - name: acquired-date
-    type: date
-    required: false
-relationships:
-  - type: one-to-many
-    to: apartment
-  - type: many-to-one
-    to: investor
-provenance:
-  - date: 2026-04-09
-    source: feedback/2026-04-09-first-meeting
-```
-
-**Required:** `id`, `name`, `description`, `fields`
-
-**Field types:** `string`, `integer`, `float`, `boolean`, `date`, `datetime`, `uuid`, `enum`, `reference`, `text`, `json`
-
-**Promotion from fictional to real.** The `fictional-in-prototype` flag flips to `false` in Phase 5. Promotion checklist:
-
-- [ ] Field types tightened (string → specific format, int → bounded range)
-- [ ] Constraints verified against rules
-- [ ] Related features reviewed for backend-plan fit
-- [ ] Backend plan regenerated
-
-### 8.4 `features/F<NNN>-<slug>.yaml`
-
-```yaml
-id: F002
-title: Bulk import apartments into a building
-status: proposed | approved | in-prototype | in-build | complete | deferred | rejected
-priority: must-have | should-have | nice-to-have
-description: >
-  User can add many apartments to a building at once without
-  entering each one manually.
-roles: [investor, property-manager]
-related-entities: [building, apartment]
-related-rules: [R001]
-acceptance-criteria:
-  - User can enter any positive integer for apartment count
-  - User can optionally upload a CSV for apartment details
-  - No artificial dropdown limits
-edge-cases:
-  - 28 apartments (non-round number)
-  - 500+ apartments
-  - 1 apartment
-  - CSV with special characters in names
-ui-notes: >
-  Optional free-text hints for the prototype builder.
-backend-notes: >
-  Optional free-text hints for backend considerations.
-open-questions: [Q007]
-provenance:
-  - date: 2026-04-09
-    source: feedback/2026-04-09-first-meeting
-    note: Client mentioned buildings of various sizes
-  - date: 2026-04-22
-    source: feedback/2026-04-22-prototype-review
-    note: Client called out dropdown problem, rule R001 added
-```
-
-**Required:** `id`, `title`, `status`, `description`, `roles`, `acceptance-criteria`
-
-**Note on flows:** features do NOT carry a `related-flows` field. The feature→flow relationship is one-way. The index derives the reverse lookup (§8.12).
-
-### 8.5 `flows/<flow-slug>.yaml`
-
-Flows are critical for testing — the test plan walks flows to derive E2E scenarios.
-
-```yaml
-id: add-first-building
-name: Investor adds their first building
-description: >
-  End-to-end journey of a new investor onboarding their first building
-  into the platform, from login to seeing it on their dashboard.
-role: investor
-trigger: User has completed signup and is on empty dashboard
-preconditions:
-  - User is authenticated
-  - User has zero buildings in their portfolio
-steps:
-  - step: 1
-    action: User clicks "Add Building"
-    feature: F001
-    expected-ui: Building creation modal appears
-  - step: 2
-    action: User enters building address and apartment count
-    feature: F001
-    rules-enforced: [R001]
-    expected-ui: Inline validation feedback on apartment count
-  - step: 3
-    action: User optionally uploads apartment CSV
-    feature: F002
-    expected-ui: File picker, upload progress, parsed preview
-  - step: 4
-    action: Building appears on dashboard
-    feature: F003
-    expected-ui: Dashboard shows one building card with entered data
-success-criteria:
-  - Building record exists with correct address and apartment count
-  - Dashboard shows the new building
-  - No errors displayed
-failure-modes:
-  - User enters invalid apartment count → R001 error, step 2 blocks
-  - CSV is malformed → upload error with retry, step 3 allows retry
-  - Network failure during save → retry prompt, no partial state
-test-persona-hints: >
-  Realistic investor personas: cautious first-timer reading every
-  tooltip; experienced user tabbing through quickly; non-native
-  English speaker who may misread button labels.
-provenance:
-  - date: 2026-04-11
-    source: feedback/2026-04-11-voice-agent-interview
-```
-
-**Required:** `id`, `name`, `description`, `role`, `steps`, `success-criteria`
-
-Flows without `preconditions`, `expected-ui`, `failure-modes`, and `test-persona-hints` produce weaker test plans. The readiness check flags these.
-
-### 8.6 `rules/R<NNN>-<slug>.yaml`
-
-Rules are the primary source of test scenarios and the primary defense against logic gaps.
-
-```yaml
-id: R001
-rule: Apartment count must accept any positive integer
-rationale: >
-  Real buildings have non-round apartment counts. Dropdowns or
-  fixed lists always miss real-world cases.
-enforced-in-features: [F001, F002]
-enforced-in-entities:
-  - entity: building
-    field: apartment-count
-test-scenarios:
-  - input: 28
-    expected: accepted
-    category: typical-non-round
-  - input: 1
-    expected: accepted
-    category: minimum-valid
-  - input: 10000
-    expected: accepted
-    category: large-valid
-  - input: 0
-    expected: rejected with clear error
-    category: boundary-invalid
-  - input: -5
-    expected: rejected
-    category: negative-invalid
-  - input: "twenty"
-    expected: rejected
-    category: type-invalid
-  - input: null
-    expected: rejected
-    category: missing-required
-severity: critical | important | nice-to-have
-logic-gap-probes: >
-  Testing agent should specifically probe: very large numbers (10000+),
-  numbers with commas or decimals, whitespace around the number,
-  paste-from-spreadsheet scenarios.
-lesson-from: acme-realestate-2025-q3     # optional — pattern library breadcrumb
-provenance:
-  - date: 2026-04-22
-    source: feedback/2026-04-22-prototype-review
-    note: Client showed real building with 28 apartments
-```
-
-**Required:** `id`, `rule`, `rationale`, `severity`
-
-### 8.7 `integrations/<integration-slug>.yaml`
-
-```yaml
-id: stripe
-name: Stripe
-purpose: Payment processing for tenant rent collection
-phase: backend
-features-using: [F012, F013]
-data-flows:
-  - direction: outbound
-    data: payment intent
-  - direction: inbound
-    data: webhook notification
-decisions: [D004]
-open-questions: [Q009]
-provenance:
-  - date: 2026-04-09
-    source: feedback/2026-04-09-first-meeting
-```
-
-**Required:** `id`, `name`, `purpose`
-
-**Never store credentials in integration entries.** API keys, webhook secrets, OAuth tokens live outside the state repo — in developer keychains, gitignored environment files, or secret managers. State references integrations by name.
-
-### 8.7b `sources/<source-slug>.yaml`
-
-Registry of **external documents** — descriptions and links, never the files
-themselves. Slug IDs (like integrations); `S###` belongs to stakeholders.
-
-```yaml
-id: pricing-sheet-2026
-name: 2026 Pricing Sheet
-kind: spreadsheet | document | url | dataset | contract | other
-location: https://drive.google.com/file/d/PLACEHOLDER   # the link, never the file
-covers: Per-tier subscription pricing and discount bands.
-status: active | unavailable | superseded
-last-checked: 2026-06-01
-provenance:
-  - date: 2026-06-01
-    source: feedback/2026-06-01-pricing-call
-```
-
-**Required:** `id`, `name`, `location`, `status`. Referencing a source is an
-ordinary typed reference (`references: {sources: [pricing-sheet-2026]}`). The
-folder ships empty with a `.gitkeep`; the canonical format is `docs/schema.md` §10.
-
-### 8.8 `decisions/D<NNN>-<slug>.md`
-
-ADR-style. Markdown with YAML frontmatter.
-
-```markdown
----
-id: D007
-title: Use Postgres, not MongoDB
-status: accepted | proposed | obsolete
-date: 2026-04-15
-affects: [backend]
----
-
-## Context
-
-The data model is fundamentally relational — buildings own apartments,
-apartments have leases, leases have payments.
-
-## Decision
-
-We will use PostgreSQL for the primary data store.
-
-## Consequences
-
-- Devs familiar with SQL can contribute faster.
-- Financial aggregations are straightforward.
-- We lose schema flexibility, but our schema is stable.
-
-## Provenance
-
-- 2026-04-15: Backend planning session; lead dev proposed, team agreed.
-```
-
-**Required frontmatter:** `id`, `title`, `status`, `date`
-
-If a decision is later obsoleted, change `status: obsolete` and append a dated note to Provenance explaining what replaced it.
-
-### 8.9 `questions/Q<NNN>-<slug>.md`
-
-```markdown
----
-id: Q007
-title: Does the investor want bulk CSV import for apartments?
-status: open | answered | obsolete
-raised: 2026-04-09
-raised-by: voice-agent
-answered: null
-answer-summary: null
-related-features: [F002]
-blocks-phase: spec
----
-
-## The question
-
-During the voice agent interview the investor mentioned "uploading a
-spreadsheet would be amazing" but didn't specify format or frequency.
-
-## Why it matters
-
-If yes, F002 needs CSV parsing logic. If no, F002 is simpler.
-
-## What we need
-
-Follow-up with client: confirm CSV is wanted, get sample file.
-```
-
-**Required frontmatter:** `id`, `title`, `status`, `raised`
-
-**Answering a question is a state event.** Feed the answer to the state-updater as input. The state-updater updates the question's `status`, `answered`, `answer-summary`, and propagates the answer to every entry that directly references the question. Propagation is bounded to entries that reference the question by structured ID (not prose). Human reviews with line-item control.
-
-**Controlled vocabulary for `raised-by` and similar fields:**
-- Team members: first name or agreed handle (`kaloian`, `anton`)
-- AI agents: fixed labels (`voice-agent`, `state-updater`, `coding-agent`, `testing-agent`)
-- Client: `client` generically
-
-### 8.10 `feedback/<date>-<session-slug>.yaml`
-
-One file per client interaction or internal event that produces input to state.
-
-**Feedback entries are immutable raw captures.** Written once after PM review, never edited. If something is missed, create a new `internal-decision` feedback entry that references this one.
-
-```yaml
-id: 2026-04-22-prototype-review
-date: 2026-04-22
-type: prototype-review | voice-interview | live-meeting | email | async-review | internal-decision | research | ownership-change | test-finding
-participants:
-  - client: jane-smith
-  - us: kaloian
-raw-attachments: feedback/attachments/2026-04-22-prototype-review/
-summary: >
-  Client reviewed the prototype. Overall positive. Main concerns:
-  apartment count input, property manager role scope.
-extracted-items:
-  # Records what the state-updater extracted AND what the PM decided
-  # during review. Once written, this file is never edited.
-  - type: feature-change
-    target: F002
-    change: Include property manager role
-    change-class: direct
-    status-in-diff: accepted
-  - type: new-feature
-    target: F015
-    change: Property manager dashboard
-    change-class: direct
-    status-in-diff: accepted
-  - type: feature-change
-    target: F008
-    change: Remove property-manager role (propagated from F002 change)
-    change-class: propagated
-    status-in-diff: rejected
-    rejection-reason: F008 has a separate auth context that doesn't inherit from F002
-  - type: new-question
-    target: Q012
-    change: Data scope for PM dashboard
-    change-class: direct
-    status-in-diff: accepted
-  - type: new-feature
-    target: F016
-    change: Tenant self-service portal
-    change-class: direct
-    status-in-diff: rejected
-    rejection-reason: Out of scope for v1
-status: processed
-```
-
-**Required:** `id`, `date`, `type`, `participants`, `summary`
-
-**Write-once lifecycle:**
-1. Input arrives; raw files go to `feedback/attachments/<date-slug>/`.
-2. State-updater produces extraction report, proposed diff (including index), and a *draft* feedback.yaml.
-3. PM reviews with line-item control.
-4. If rejected items need rework, state-updater re-proposes with the PM's additional context.
-5. Once PM approves the final set, feedback.yaml is written with `status-in-diff` reflecting the final decisions. This is the file's only write.
-6. Canonical entry changes and the index update commit in the same git commit.
-
-**Type notes:**
-- `internal-decision`: team decisions made outside client interactions
-- `research`: pre-meeting industry/client research
-- `ownership-change`: handoffs between project owners
-- `test-finding`: bugs or logic gaps from Phase 7 that feed back into state
-
-### 8.11 `risks/K<NNN>-<slug>.md`
-
-```markdown
----
-id: K001
-title: Backend cannot match prototype data shapes without rework
-status: open | mitigated | materialized | closed
-severity: low | medium | high
----
-
-## Risk
-
-Prototype was built with fictional data shapes. Backend may need to
-reshape data, which could break frontend assumptions.
-
-## Mitigation
-
-Phase 5 backend plan explicitly maps fictional → real data shapes.
-Any shape changes become state entries and the build brief regenerates.
-```
-
-**Required frontmatter:** `id`, `title`, `status`, `severity`
-
-Severity scale is independent from feature `priority` and rule `severity`. The three scales don't map to each other. This is intentional — risks, features, and rules are different kinds of things.
-
-### 8.12 `stakeholders/S<NNN>-<slug>.md`
-
-People at the client who matter to the project. Different from `roles/`
-— roles are user personas for the product. Stakeholders are specific
-named humans at the client organization.
-
-Markdown with YAML frontmatter.
-
-```markdown
----
-id: S001
-name: Jane Chen
-title: Founder & CEO
-company: Acme Holdings
-email: jane@acme-example.com        # optional, omit if sensitive
-phone: null                         # optional
-
-# Role flags — any combination can be true
-is-decision-maker: true             # final sign-off authority
-is-economic-buyer: true             # controls the budget
-is-champion: true                   # actively wants this to happen
-is-interviewee: true                # participated in discovery
-is-user: false                      # will personally use the product
-is-blocker: false                   # skeptical, could derail
-
-# Qualitative assessment
-relationship-temperature: cold | cool | neutral | warm | hot
-influence-on-decision: low | medium | high
----
-
-## Background
-
-Free-text. Who they are, how long at the company, relevant history.
-What they've worked with before. Who they report to.
-
-## What they care about
-
-Bullet list of priorities, values, things they bring up.
-
-## What they worry about
-
-Bullet list of concerns, objections, risks from their perspective.
-
-## Quotes
-
-- YYYY-MM-DD: "verbatim quote" (source: feedback/<session-id>)
-
-## Provenance
-
-- YYYY-MM-DD: how we learned about them, which session
-```
-
-**Required frontmatter:** `id`, `name`.
-
-**Flag semantics:**
-
-- `is-decision-maker` — has the final say on "yes, sign the contract"
-- `is-economic-buyer` — controls the budget; may or may not be the decision maker
-- `is-champion` — internal advocate; actively wants the project to happen
-- `is-interviewee` — participated in discovery meetings or voice interviews
-- `is-user` — will personally use the delivered product
-- `is-blocker` — skeptical, opposed, or holds veto power against the project
-
-One person can have multiple flags. Most commonly the founder of a small
-company is `is-decision-maker + is-economic-buyer + is-champion + is-interviewee`
-all at once.
-
-**When stakeholders are created:** during the discovery phase, as people
-get named. The state-updater should surface mentions like "I'd need to
-check with X", "Y controls the budget", "Z is really excited about this"
-as candidates for new or updated stakeholder entries.
-
-**Stakeholders never get merged with roles.** They are different things.
-A stakeholder might inform a persona (e.g., Jane's real profile becomes
-an investor persona), but the stakeholder entry stays distinct.
-
-### 8.13 `state-index.yaml`
-
-The pointer map maintained by the state-updater as part of every diff. The state-updater reads this first on every run to decide what to load.
-
-**Full structure with both outgoing references and `referenced-by` reverse lookup:**
-
-```yaml
-schema-version: "0.5"
-generated-at: 2026-05-03T14:22:00Z
-project-id: acme-realestate
-entries:
-
-  - id: F002
-    type: feature
-    path: features/F002-bulk-import-apartments.yaml
-    title: Bulk import apartments into a building
-    status: approved
-    priority: must-have
-    references:
-      roles: [investor, property-manager]
-      entities: [building, apartment]
-      rules: [R001]
-      questions: [Q007]
-    referenced-by:
-      flows: [add-first-building]
-      decisions: []
-      risks: []
-
-  - id: R001
-    type: rule
-    path: rules/R001-apartment-count-any-positive-integer.yaml
-    title: Apartment count must accept any positive integer
-    status: active
-    severity: critical
-    references:
-      features: []        # rules don't reference features; features reference rules
-      entities: [building]
-    referenced-by:
-      features: [F001, F002]
-      flows: [add-first-building]
-
-  - id: investor
-    type: role
-    path: roles/investor.yaml
-    title: Real Estate Investor
-    status: active
-    references:
-      features: []
-    referenced-by:
-      features: [F001, F002, F003]
-      flows: [add-first-building]
-
-  - id: Q007
-    type: question
-    path: questions/Q007-does-client-want-csv-import.md
-    title: Does the investor want bulk CSV import for apartments?
-    status: open
-    blocks-phase: spec
-    references:
-      features: [F002]
-    referenced-by:
-      features: [F002]
-
-  - id: S001
-    type: stakeholder
-    path: stakeholders/S001-jane-chen.md
-    title: Jane Chen — Founder & CEO
-    status: active
-    flags: [is-decision-maker, is-economic-buyer, is-champion, is-interviewee]
-    references: {}
-    referenced-by: {}
-# ... and so on for every entry
-```
-
-**What's in the index, per entry:**
-
-| Field | Always | Notes |
-|---|---|---|
-| `id` | yes | Matches the entry's ID |
-| `type` | yes | `feature` / `rule` / `entity` / ... |
-| `path` | yes | Relative path to the entry file |
-| `title` | yes | Entry's title or name, truncated if long |
-| `status` | yes | Current status |
-| `references` | yes | What this entry points to, grouped by target type |
-| `referenced-by` | yes | Reverse lookup — what points to this entry, grouped by source type |
-| `priority` / `severity` | when present | Only for types that carry it (features, rules, risks) |
-| `blocks-phase` | when present | Only for questions |
-
-**What's NOT in the index:**
-- Prose descriptions (too big)
-- Full field lists from entities (stays in the entity file)
-- Provenance history (stays in the entity file)
-- Acceptance criteria, test scenarios, etc. (stay in the entity file)
-
-**Rules:**
-- The index is maintained by the state-updater as part of every diff. The state-updater never runs without updating the index at the same time.
-- **Cross-references in the index are populated from structured YAML fields and markdown frontmatter only.** Prose mentions of an ID (e.g., "see F003") do NOT appear in `referenced-by`. This is the definition of "direct reference" used for propagation.
-- On a fresh repo with no index yet, the state-updater's first run auto-scans the repo and builds the index from scratch. No separate bootstrap step is required.
-- If the index gets corrupted, delete it and run the state-updater on any input; it will rebuild.
-
-**Size expectations.** A mature project of ~50 entries produces roughly a 300-line index. A project of ~500 entries produces roughly a 2500-line index. Still cheap to load in full.
+**The canonical format for every entry type — and for `state-index.yaml` — is
+[`docs/schema.md`](schema.md).** That document carries the annotated skeleton,
+the required fields, and the controlled vocabularies, and it updates in every
+repo with each template pull. This section no longer repeats those field-level
+specs (parallel copies only go stale); it explains *why* each type exists and
+how the types relate. Trust labels (`confidence`, `asserted-by`, `claim-type`,
+`scope`, `re-verify-after`) and, in company-brain mode, `visibility` may appear
+on any entry — see `docs/schema.md` §1 and CLAUDE.md.
+
+**`project.yaml`** — one per repo. Terminal state is `closed`, with `outcome`
+recording delivered vs lost; lost projects are still archived and feed the
+pattern library (`archived` is a filesystem location, not a status).
+`lessons-learned` is proposed by Claude at close. The `commercial` block
+references `stakeholders/` IDs, and the state-updater keeps the two in sync
+(project-state mode only). `mode` and `language` are set at first-run; absent
+`mode` = `project-state`, absent `language` = `en`.
+
+**`roles/`** — user roles and their representative personas (distinct from
+`stakeholders/`, which are named real humans). Target 3–5 personas per role. A
+persona built from real source material is `confidence: asserted` and carries at
+least one `quotes` entry; one proposed without source material is
+`confidence: derived` and must be PM-validated before it is treated as canonical
+(the readiness check warns if a role has only `derived` personas). The
+`inferred` field is removed in v0.7 — skills read a legacy `inferred` as an alias
+(`true` → `derived`, `false` → `asserted`) and never write it again.
+`test-implications` is the bridge from a persona to the test plan generator.
+
+**`entities/`** — data entities and their fields. `fictional-in-prototype` flips
+to `false` when an entity is promoted to a real backend shape (field types
+tightened, constraints verified against rules, related features reviewed,
+backend plan regenerated).
+
+**`features/`** — discrete product features. The feature→flow relationship is
+one-way: features carry no `related-flows` field; the index derives the reverse
+lookup.
+
+**`flows/`** — user journeys, critical for testing because the test plan walks
+them to derive E2E scenarios. A flow missing `preconditions`, `expected-ui`,
+`failure-modes`, or `test-persona-hints` produces a weaker test plan; the
+readiness check flags these.
+
+**`rules/`** — business rules, the primary source of test scenarios and the
+primary defense against logic gaps.
+
+**`integrations/`** — third-party services, referenced by name. **Never store
+credentials** (API keys, webhook secrets, OAuth tokens) in an integration entry
+or anywhere in the repo; they live in keychains, gitignored env files, or secret
+managers.
+
+**`sources/`** — registry of external documents: descriptions and links, **never
+the files themselves**. Slug IDs (like integrations; `S###` belongs to
+stakeholders). Status vocabulary is `active | unavailable | superseded`.
+Referencing a source is an ordinary typed reference
+(`references: {sources: [<slug>]}`).
+
+**`decisions/`** — ADR-style markdown. Obsoleting a decision sets
+`status: obsolete` and appends a dated provenance note explaining the
+replacement; the entry is never deleted.
+
+**`questions/`** — open questions. Answering one is a state event: feed the
+answer to the state-updater, which sets `status: answered`, fills `answered` and
+`answer-summary`, and propagates to entries that reference the question by
+structured ID. `raised-by` uses a controlled vocabulary: team members by first
+name/handle, AI agents by fixed label (`voice-agent`, `state-updater`,
+`coding-agent`, `testing-agent`), the client generically as `client`.
+
+**`feedback/`** — the immutable record of any raw ingested input (transcripts,
+memos, emails, research). Written once after PM review and never edited; if
+something is missed, create a new `internal-decision` entry that references it.
+Write-once lifecycle: raw files land in `feedback/attachments/<date-slug>/`; the
+state-updater drafts the entry alongside the diff and index patch; the PM
+reviews line-item; the approved entry, the canonical changes, and the index
+patch commit together. Notable types include `internal-decision`, `research`,
+`ownership-change`, and `test-finding`.
+
+**`risks/`** — known risks. The risk `severity` scale is independent from feature
+`priority` and rule `severity`; the three deliberately do not map to each other.
+
+**`stakeholders/`** — named real humans at the client who matter to the project
+(in a company-brain, the company's own people and partners). Distinct from
+`roles/` and never merged with them, though a stakeholder may inform a persona.
+Boolean flags (`is-decision-maker`, `is-economic-buyer`, `is-champion`,
+`is-interviewee`, `is-user`, `is-blocker`) can combine; a small-company founder
+is often the first four at once. Created during discovery as people get named —
+the state-updater surfaces authority hints ("I'd need to check with X", "Y
+controls the budget") as candidates. In company-brain mode, stakeholder entries
+default to `visibility: restricted`.
+
+**`state-index.yaml`** — the pointer map the state-updater reads first on every
+run to decide what to load. Per entry it holds `id`, `type`, `path`, `title`,
+`status`, `references`, and `referenced-by`, plus `priority`/`severity` where the
+type carries them, `blocks-phase` for questions, `confidence` on every entry,
+`re-verify-after` when set, and `visibility` in brain mode. It does NOT hold
+prose descriptions, full field lists, provenance, or acceptance/test detail —
+those stay in the entry files. Cross-references are populated from structured
+fields and frontmatter only; prose mentions never appear in `referenced-by`
+(this is the definition of a "direct reference" for propagation). The
+semantic-link key pairs `contradicts`/`contradicted-by` and
+`derived-from`/`derives` live inside the `references`/`referenced-by` maps.
+
+**The state-updater never rewrites the whole index.** It emits only the full
+entry blocks it touched (keyed by `id`) plus blocks for new entries; the
+deterministic merge script `scripts/merge-index-patch.py` (no LLM) swaps them in
+by id and refreshes the header timestamp, so entries it did not emit cannot be
+corrupted. On a fresh repo with no index, the first run auto-scans and builds it.
+If the index is ever corrupted, delete it and run the state-updater on any input
+to rebuild.
 
 ---
 
@@ -1037,7 +442,7 @@ These rules are what makes the system work.
 
 The state-updater is the single most important artifact in the system. Everything else can be mediocre and the system still works; if the state-updater is mediocre, the system silently rots.
 
-The full v1 prompt is in **Appendix A**. This section describes behavior.
+The skill file `.claude/skills/state-updater.md` is the authoritative prompt. This section describes its behavior.
 
 ### Inputs and outputs
 
@@ -1060,7 +465,7 @@ The state-updater never blindly loads every file. It works in phases:
 3. **Load directly-affected entries deeply.** Read the specific files fully.
 4. **Identify propagation targets.** For each directly-affected entry, find entries that reference it — *using the index's `referenced-by` field*. This is bounded to one hop.
 5. **Load propagation targets deeply.** Read those files too.
-6. **Propose the diff.** Every directly-affected entry, every one-hop propagation target, and the index. Each change marked `direct` or `propagated`.
+6. **Propose the diff.** Every directly-affected entry, every one-hop propagation target, and the index — index changes emitted as entry-block patches (see §8). Each change marked `direct` or `propagated`.
 
 ### What "directly affected" means
 
@@ -1155,7 +560,7 @@ Total files touched in diff: 6
 
 Standard file-change format — add, modify, delete — file by file. Each proposed change cites the item number from the extraction report so the PM can trace it.
 
-The diff includes every directly-affected entry, every one-hop propagation target, AND the `state-index.yaml` update. The index is updated by the same pass that modifies the entries.
+The diff includes every directly-affected entry, every one-hop propagation target, AND the `state-index.yaml` changes — emitted as entry-block patches and merged by `scripts/merge-index-patch.py` (never a full-file rewrite).
 
 ### Iterative refinement
 
@@ -1199,7 +604,7 @@ Voice agent discovery interviews (and any other agent producing state-relevant c
 
 After the state-updater commits, a coherence check runs asynchronously in the background. It reads the index and spot-checks entries for contradictions the state-updater's one-hop scope may have missed. If it finds an issue, it emits a short report that the PM sees in their next session. This is the safety net for silent drift.
 
-See Appendix B for a sketch of the coherence check prompt.
+The live `.claude/skills/coherence-check.md` is the authoritative coherence-check skill.
 
 ### Rule-to-rule conflict detection
 
@@ -1610,6 +1015,8 @@ Slower than hand-repair, but reliable. For the team's volume (a few state events
 
 ## 17. Implementation Plan
 
+*Historical record of the original build sequence, kept for context. The template now ships complete; where this plan conflicts with the shipped template, the template wins.*
+
 ### Phase 1: Foundation (Days 1–3)
 
 **Day 1: Schema, template repo, CLAUDE.md**
@@ -1617,15 +1024,15 @@ Slower than hand-repair, but reliable. For the team's volume (a few state events
 1. Create `superstate-project-template` GitHub repo (private).
 2. Set up folder structure from §7.
 3. Create `project.yaml` template with placeholder values.
-4. Create one example file for each entry type (§8).
-5. Create example `state-index.yaml` hand-written for the template (§8.12).
-6. Create `.claude/schema-version.yaml` with `version: "0.5"`.
+4. Add a `.gitkeep` to every entry folder — the template ships **zero example entries**; the format authority is `docs/schema.md`.
+5. Create an empty `state-index.yaml` (header + `entries: []`).
+6. Create `.claude/schema-version.yaml` with `version: "0.7"`.
 7. Write `README.md`.
 8. Write `CLAUDE.md` from the template in §14.
 
 **Day 2: State-updater + extraction report**
 
-1. Use the v1 draft in **Appendix A** as `.claude/skills/state-updater.md`.
+1. Write `.claude/skills/state-updater.md` — the live skill is the authoritative prompt (Appendix A is retired).
 2. Write `.claude/skills/extraction-report.md` — format and protocol for the extraction report (separated so other skills can reuse).
 3. Test end-to-end: feed a short sample transcript, verify the extraction report surfaces high-risk items, topic + short quote sourcing works, and the diff includes index updates.
 
@@ -1640,7 +1047,7 @@ These three days produce the MVP: clone, seed, iterate, generate a build brief.
 
 **Day 4: Coherence checker**
 
-Write `.claude/skills/coherence-check.md` — reads state and flags internal contradictions. Runs on every commit. See **Appendix B** for sketch.
+Write `.claude/skills/coherence-check.md` — reads state and flags internal contradictions. Runs on every commit. (The live `.claude/skills/coherence-check.md` is authoritative; Appendix B is retired.)
 
 **Day 5: Structural integrity + drift detector**
 
@@ -1890,12 +1297,41 @@ Always archive, never delete. Lost projects still get archived — they still co
 
 ## 21. Schema Versioning
 
-This document describes schema **v0.5**.
+This document describes schema **v0.7**.
 
 - Breaking changes bump the major version: 0.x → 1.0
-- Additive changes bump the minor version: 0.5 → 0.6
+- Additive changes bump the minor version: 0.6 → 0.7
 - Each project records its schema version in `.claude/schema-version.yaml`
 - The first 3 projects will drive schema evolution — expected and healthy
+
+### Changes from v0.6 to v0.7
+
+- Added: **trust layer** — optional `confidence` (`verified | asserted | derived`,
+  absent = `asserted`), `asserted-by`, `claim-type`, `scope` (absent = `global`),
+  and `re-verify-after` on any entry. Only a human grants `verified`;
+  de-verify-on-modify; staleness is computed at read time, never stored. The
+  `inferred` field is removed (read as a legacy alias only).
+- Added: **anti-laundering** core rule #13 — a non-verified claim's label travels
+  with it; generation is never blocked, only nudged.
+- Added: **verify-claim** and **reconciliation** skills.
+- Added: **`sources/`** entry type (slug IDs) — external-document registry of
+  links, never files; status `active | unavailable | superseded`.
+- Added: two **semantic link** pairs in the index — `contradicts`/`contradicted-by`
+  and `derived-from`/`derives`.
+- Changed: the state-updater emits **index entry-block patches** merged by
+  `scripts/merge-index-patch.py`, never a full-file rewrite.
+- Changed: **language is per-repo** (`project.yaml` `language`); the old
+  "all state is in English" rule is retired.
+- Added: **company-brain mode** — `mode` flag, `visibility` mechanism, access
+  model, `verifiers:`/`teams:`; documented in `docs/modes.md`.
+- Changed: the template ships **zero example entries**; `docs/schema.md` is the
+  format authority. Entry folders keep a `.gitkeep`.
+- Added: the **readiness check** is written, with two pre-build existence checks
+  (project `design.md`, code-repo `CLAUDE.md`).
+- Added: generators emit a **"Gaps & confidence"** trailer; the README "About"
+  section is filled after the first real input.
+- Fixed: removed the leaked example stakeholder and the committed
+  `.claude/settings.local.json` (now gitignored).
 
 ### Changes from v0.5 to v0.6
 
@@ -1991,7 +1427,7 @@ Deliberate omissions so the system stays focused:
 - **Readiness check** — the AI check at phase gates that verifies state is ready for the next phase.
 - **Coherence check** — the AI check that runs on every commit to catch contradictions the state-updater missed.
 - **Index** — `state-index.yaml`, the pointer map maintained by the state-updater as part of every diff. See §8.12.
-- **State-updater** — the prompt that reads input + state and proposes extraction report + diff + feedback.yaml draft. See Appendix A.
+- **State-updater** — the prompt that reads input + state and proposes extraction report + diff + feedback.yaml draft. See `.claude/skills/state-updater.md`.
 - **Generator** — a prompt that reads state and produces a view.
 - **Closed + outcome** — project terminal state. `status: closed` means the project is over; `outcome: delivered | lost` records how it ended.
 
@@ -2021,248 +1457,18 @@ Generators traverse this graph:
 
 ---
 
-# Appendix A — State-Updater Prompt (v1 draft)
+# Appendix A — State-Updater Prompt (retired)
 
-This is a starting version of `.claude/skills/state-updater.md`. Expect to iterate in the first two weeks of real use.
-
-```markdown
-# State-Updater Skill
-
-You are the state-updater for a Project State repository. Your job is
-to take a new input (a meeting transcript, a memo, a dev note, a
-question answer, a test finding) and propose structured changes to
-the project's state.
-
-You produce three artifacts for human review. You never commit.
-
-## Your inputs
-
-1. The new input (transcript or memo), provided by the human.
-2. `state-index.yaml` at the repo root.
-3. Specific entry files you load on demand.
-
-## Your outputs
-
-1. An **extraction report** — human-readable summary of what you found.
-2. A **structured diff** — concrete file changes.
-3. A **draft feedback.yaml** — record of this input for the feedback/
-   folder.
-
-## Step by step
-
-### Step 1 — Read the index
-
-Load `state-index.yaml`. This is your map of every entry in the project.
-If `state-index.yaml` does not exist (fresh repo), scan the entire repo
-and build it from scratch. Otherwise, trust it.
-
-### Step 2 — Identify directly-affected entries
-
-An entry is directly affected if:
-- It is named or ID-referenced in the input, OR
-- The input explicitly concerns a behavior the entry defines, OR
-- Your first-pass extraction produces a change targeting it.
-
-When uncertain whether an entry is directly affected, include it and
-flag for PM review rather than silently including or excluding.
-
-Load every directly-affected entry fully.
-
-### Step 3 — Identify propagation targets
-
-For each directly-affected entry, find entries that reference it
-via the index's `referenced-by` field. This is ONE HOP only. Do NOT
-follow transitive references.
-
-Load every one-hop propagation target fully.
-
-### Step 4 — Classify each proposed change
-
-Every proposed change falls into one of four cases:
-
-- **Addition (Case 1):** new information that doesn't conflict.
-- **Refinement (Case 2):** tightens or clarifies an existing entry
-  without contradicting it.
-- **Change of mind (Case 3):** contradicts existing state because the
-  client or team has changed direction.
-- **Correction (Case 4):** old entry was never correct (transcription
-  error, misheard, misinterpreted).
-
-Never propose a change without classifying it.
-
-### Step 5 — Detect local rule conflicts
-
-If you are editing a rule or feature, check whether your change
-contradicts any other rule in your one-hop scope. If yes, flag it
-explicitly as a high-risk item. Global rule conflicts are not your
-job — the coherence check handles those.
-
-### Step 6 — Check for credentials
-
-Scan the input for anything that looks like a credential: API keys,
-webhook secrets, OAuth tokens, passwords. If detected, flag it in
-the extraction report and refuse to include that portion in the diff.
-
-### Step 7 — Produce the extraction report
-
-Format:
-
-```
-Extraction report — <session-id>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-HIGH-RISK ITEMS (read these first)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Case 3 or 4 items; rule contradictions; credential warnings;
-any item where you are uncertain and recommend PM scrutiny]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TOPICS COVERED IN INPUT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Every topic you identified in the input, with item count
-or "0 items extracted" so the PM can spot intentional skips]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DIRECT CHANGES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Numbered list. Each item:
- - Target entry (existing ID or "[new] <ID>")
- - Case (refinement / addition / change-of-mind / correction)
- - Source: topic — "5-10 word quote from input"]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROPAGATED CHANGES (each approvable individually)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Numbered list, continuing from direct changes. Each item:
- - Target entry
- - Propagated from: change <N>
- - Reason: why this follow-on change is proposed
- - PM attention: if there's a reason to scrutinize]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ITEMS I CHOSE NOT TO PROPOSE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Things in the input you deliberately left out, with reason]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROPAGATION SUMMARY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Direct changes: N
-Propagated changes: N
-state-index.yaml: will be updated to reflect the above
-Total files touched in diff: N
-```
-
-### Step 8 — Produce the structured diff
-
-Standard add/modify/delete format, file by file. Each change cites
-its item number from the extraction report.
-
-The diff must include:
-- Every directly-affected entry
-- Every one-hop propagation target
-- The updated `state-index.yaml` (update `references` and
-  `referenced-by` for every entry your diff affects)
-
-### Step 9 — Produce the draft feedback.yaml
-
-Populate:
-- `id`, `date`, `type`, `participants`, `raw-attachments`, `summary`
-- `extracted-items` list — one per item from the extraction report,
-  with `change-class: direct | propagated` and
-  `status-in-diff: pending` (status will be updated to accepted /
-  rejected / modified based on PM review before the file is written).
-
-### Step 10 — Present to human and iterate
-
-Present the extraction report inline. Wait for response.
-
-If the human rejects items and provides additional context, re-propose
-from Step 4 with that context. Multiple cycles are expected.
-
-If the human approves, present the structured diff. Wait for approval.
-
-Once approved, finalize the feedback.yaml with the human's decisions,
-and emit commit-ready files.
-
-## Rules you never break
-
-- Never auto-commit. Human approval is mandatory.
-- Never silently merge conflicts. Case 3 and Case 4 are explicit.
-- Never fabricate provenance. Every line must cite an actual source.
-- Never edit existing feedback entries (they are immutable).
-- Never propose a change without classifying it.
-- Never include a suspected credential in the diff.
-- Never exceed one hop of propagation.
-- Never treat prose mentions of an ID as a direct reference —
-  only structured YAML fields and markdown frontmatter count.
-
-## When input is pathological
-
-- Empty / near-empty: return an extraction report saying
-  "no extractable content."
-- Doesn't mention the project: ask the PM to confirm this is for this
-  project before proceeding.
-- Contradicts many entries at once: produce the diff but flag high-risk;
-  recommend careful review.
-- Partial / truncated: process what exists, flag the truncation.
-- Contains credentials: flag in report, refuse diff.
-
-## Voice agent outputs
-
-Voice agent interview outputs go through you like any other input,
-regardless of whether they're raw transcripts or pre-structured. Never
-treat voice agent structured output as already-canonical state.
-```
+The embedded v1 draft has been retired. **The authoritative state-updater prompt
+is the live skill at `.claude/skills/state-updater.md`** — keeping a parallel
+copy here only guaranteed it would drift. Read the skill file directly.
 
 ---
 
-# Appendix B — Coherence Check Prompt (v1 sketch)
+# Appendix B — Coherence Check Prompt (retired)
 
-The coherence check runs async on every commit. Full prompt to be written on Day 4; this is a sketch of what it should do.
-
-```markdown
-# Coherence Check Skill
-
-You run automatically after every commit to the Project State repo.
-Your job is to spot contradictions the state-updater's one-hop scope
-may have missed.
-
-## Your inputs
-
-- `state-index.yaml` (for scope)
-- Specific entries you load on demand based on what changed in the
-  commit
-
-## What you check
-
-1. **Rule-to-rule conflicts.** Do any two rules contradict each other
-   semantically? (e.g., R001 "apartment count must be positive integer"
-   and R014 "apartment count accepts string formats".)
-2. **Orphaned references.** Does any entry reference an ID that doesn't
-   exist? Does any entry's `referenced-by` point to something that no
-   longer references it?
-3. **Status inconsistencies.** Are there approved features blocked by
-   open questions? Features marked complete with unresolved open-questions?
-4. **Flow/feature coverage.** Is any approved feature referenced by zero
-   flows? Is any flow step referencing a rejected feature?
-5. **Provenance gaps.** Any entry without provenance? Any provenance
-   entry without a date or source?
-
-## Your output
-
-A short report. If clean, a single line: "Coherence check clean."
-If not, list each issue with severity (blocking / warning / info) and
-the affected entry IDs.
-
-## Rules
-
-- You never edit state. You only report.
-- You run async — you don't block commits. The report surfaces in
-  the PM's next session.
-- Don't flag things the state-updater already flagged in its
-  high-risk section; assume those are handled.
-```
+Likewise retired. **The authoritative coherence-check prompt is the live skill at
+`.claude/skills/coherence-check.md`.**
 
 ---
 
@@ -2272,7 +1478,7 @@ Project State replaces documents-as-truth with a structured git repo of small YA
 
 Humans interact with state through Claude Code (devs) and Claude Cowork (everyone else). Changes flow through a single loop: event → human gives the input to the LLM → state-updater produces extraction report + diff + feedback.yaml draft → human reviews with line-item approval → git commit (includes index update) → coherence check runs async → affected generators run when explicitly needed.
 
-The state-updater (Appendix A) is the load-bearing component. It uses `state-index.yaml` to see the whole project cheaply, then loads only directly-affected entries and their one-hop references. Propagation is bounded and explicit. The coherence check runs after every commit to catch what the state-updater's local scope missed.
+The state-updater (`.claude/skills/state-updater.md`) is the load-bearing component. It uses `state-index.yaml` to see the whole project cheaply, then loads only directly-affected entries and their one-hop references. Propagation is bounded and explicit. The coherence check runs after every commit to catch what the state-updater's local scope missed.
 
 The test plan generator turns state into comprehensive automated testing, including the logic-gap detection (apartment-dropdown-style bugs) that is the team's current unsolved problem.
 
