@@ -592,10 +592,14 @@ extracted-items:
     change-class: direct
     status-in-diff: rejected
     rejection-reason: Out of scope for v1
-status: processed
+status: pending | processed
 ```
 
 **Required:** `id`, `date`, `type`, `participants`, `summary`.
+
+`status` lifecycle: the state-updater drafts the file at `pending`; it flips to
+`processed` when the PM's line-item review is finalized and the file is
+committed. These are the only two values.
 
 Feedback is **excluded from the trust-layer backfill** — it is immutable and is
 itself the source of provenance. Write-once: drafted by the state-updater,

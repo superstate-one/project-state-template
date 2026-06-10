@@ -392,9 +392,9 @@ semantic-link key pairs `contradicts`/`contradicted-by` and
 entry blocks it touched (keyed by `id`) plus blocks for new entries; the
 deterministic merge script `scripts/merge-index-patch.py` (no LLM) swaps them in
 by id and refreshes the header timestamp, so entries it did not emit cannot be
-corrupted. On a fresh repo with no index, the first run auto-scans and builds it.
-If the index is ever corrupted, delete it and run the state-updater on any input
-to rebuild.
+corrupted. On a fresh repo the index ships as an empty header (`entries: []`). If the index
+is ever corrupted, delete it and run the state-updater on any input — it rebuilds
+by emitting a patch that includes the index header plus one block per entry.
 
 ---
 
@@ -453,7 +453,7 @@ The skill file `.claude/skills/state-updater.md` is the authoritative prompt. Th
 
 **Produces:**
 - An extraction report (human-readable summary with high-risk items at the top, direct and propagated changes separated)
-- A structured diff covering every directly-affected entry, every one-hop propagation target, AND the updated `state-index.yaml` — with line-item approval
+- A structured diff covering every directly-affected entry, every one-hop propagation target, AND the `state-index.yaml` changes (emitted as entry-block patches; see the state-updater skill) — with line-item approval
 - A draft `feedback/<date>-<slug>.yaml` for this input
 
 ### Index-based state reading

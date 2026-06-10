@@ -58,20 +58,38 @@ def main(argv):
         return 2
     index_path, patch_path = args
 
-    base = open(index_path, encoding="utf-8").read()
     patch = open(patch_path, encoding="utf-8").read()
+    try:
+        base = open(index_path, encoding="utf-8").read()
+    except FileNotFoundError:
+        base = ""
 
-    # Separate the header (through the `entries:` line) from the entries region.
-    m = re.search(r'^entries:[ \t]*(\[\][ \t]*)?$', base, re.M)
-    if not m:
-        sys.stderr.write("error: no top-level `entries:` line in index\n")
-        return 2
-    header = base[:m.start()]
-    region = base[m.end():]
-    if region.startswith("\n"):
-        region = region[1:]            # consumed by the normalized `entries:` line
+    HEADER_RE = re.compile(r'^entries:[ \t]*(\[\][ \t]*)?$', re.M)
 
-    prefix, base_blocks = split_entries(region)
+    if base.strip() == "":
+        # Missing or empty index: bootstrap the header from the patch itself.
+        # A rebuild patch includes the full index header (see the state-updater
+        # skill); we use it as the new base and treat every block as an addition.
+        pm = HEADER_RE.search(patch)
+        if not pm:
+            sys.stderr.write(
+                "error: index file missing and patch carries no header; "
+                "recreate the index header first (schema-version, generated-at, "
+                "project-id, entries: [])\n")
+            return 2
+        header = patch[:pm.start()]
+        prefix, base_blocks = "\n", []
+    else:
+        # Separate the header (through the `entries:` line) from the entries region.
+        m = HEADER_RE.search(base)
+        if not m:
+            sys.stderr.write("error: no top-level `entries:` line in index\n")
+            return 2
+        header = base[:m.start()]
+        region = base[m.end():]
+        if region.startswith("\n"):
+            region = region[1:]            # consumed by the normalized `entries:` line
+        prefix, base_blocks = split_entries(region)
     _, patch_blocks = split_entries(patch)
     if not patch_blocks:
         sys.stderr.write("error: patch contains no `  - id:` entry blocks\n")

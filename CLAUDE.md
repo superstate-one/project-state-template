@@ -117,7 +117,8 @@ Read `state-index.yaml` first, then load only the entries affected by
 the input and their one-hop references.
 
 Propose a complete diff covering every directly-affected entry, every
-one-hop propagation target, AND the updated state-index.yaml.
+one-hop propagation target, AND the state-index.yaml changes (emitted as
+entry-block patches; see the state-updater skill).
 
 Produce THREE artifacts: extraction report (with high-risk items at
 the top, topic + short quote sourcing), structured diff (with direct

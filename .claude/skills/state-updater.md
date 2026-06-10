@@ -37,8 +37,11 @@ Follow it; the template ships no example entries.
 ### Step 1 — Read the index
 
 Load `state-index.yaml`. This is your map of every entry in the project.
-If `state-index.yaml` does not exist (fresh repo), scan the entire repo
-and build it from scratch. The bootstrapped index goes into the same
+If `state-index.yaml` does not exist (fresh scan or corrupted-index rebuild),
+scan the entire repo and rebuild: **include the full index header in your patch**
+(`schema-version`, `generated-at`, `project-id` from `project.yaml`, and the
+`entries:` line) followed by one block per entry — the merge script uses the
+patch's header as the new base. The rebuilt index goes into the same
 diff as the input-driven changes — do not commit it separately, and do
 not invoke a separate index rebuilder (per CLAUDE.md rule #10, the
 state-updater is the only writer of `state-index.yaml`). Otherwise, trust
