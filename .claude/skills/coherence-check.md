@@ -24,11 +24,13 @@ entry, load:
 
 For checks 1 and 4 below, you additionally need a global sweep over
 all `rules/` and all `features/` — load these even if the commit did
-not touch them. Other checks stay scoped to the commit's neighbourhood.
+not touch them. Check 6 needs a global sweep over every entry's
+`re-verify-after` (the index carries it, so no file loads are required).
+Other checks stay scoped to the commit's neighbourhood.
 
-### Step 2 — Run the five checks
+### Step 2 — Run the six checks
 
-Run all five. Do not stop on the first failure.
+Run all six. Do not stop on the first failure.
 
 #### Check 1 — Rule-to-rule conflicts (global)
 
@@ -46,14 +48,27 @@ Flag a pair as conflicting if:
 Severity: **blocking** if both rules are `status: approved`;
 **warning** if either is `status: proposed` or `draft`.
 
+For every conflicting pair you flag here — or any two entries you find in
+direct contradiction — **propose a `contradicts` link** between them in the
+report (the two ids and a one-line reason). You never write it: the PM
+approves the proposal and the **state-updater** writes the `contradicts` /
+`contradicted-by` link as a normal mini-diff. The link persists in the index
+until the reconciliation skill clears it.
+
 #### Check 2 — Orphaned references (scoped)
 
 For each touched entry plus its one-hop neighbours:
 
 - Every ID in a `references` field must point to a file that exists
-  and is not `status: rejected | obsolete`.
-- Every ID in `referenced-by` must be matched by a `references`
-  entry on the other side. Mismatches are state-index drift.
+  and is not `status: rejected | obsolete`. IDs under a `sources:` key
+  must point to a `sources/` entry whose `status` is one of
+  `active | unavailable | superseded`; anything else (or a missing file)
+  is a dangling reference.
+- Symmetry holds for ordinary references **and for the two semantic-link
+  pairs**: every `referenced-by` must be matched by a `references` on the
+  other side; every `contradicts` must have a `contradicted-by` on its
+  partner; every `derived-from` must have a `derives` on its partner.
+  Mismatches are state-index drift.
 
 Severity: **blocking** for dangling references; **warning** for
 state-index drift (the state-updater should have caught this).
@@ -97,6 +112,17 @@ For each touched entry:
 Severity: **warning** for missing provenance on `proposed` or `draft`
 entries; **blocking** on `approved` or `complete` entries.
 
+#### Check 6 — Expiry awareness (computed, global)
+
+Sweep every entry's `re-verify-after`. Any whose date is in the past is
+**stale** — a computed observation at read time, exactly like verify-claim's
+ordering. List stale entries, worst-trusted first (`derived`, then `asserted`,
+then an expired `verified`). This never writes anything and never changes
+`confidence`; it only surfaces what needs re-verification.
+
+Severity: **info** (a prompt to run verify-claim); **warning** if a stale entry
+is `severity: critical`.
+
 ### Step 3 — Suppress noise
 
 Cross-reference your findings against the most recent state-updater
@@ -131,9 +157,14 @@ INFO  (N — already flagged by state-updater)
 [same shape]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROPOSED CONTRADICTS LINKS  (N — PM approves, state-updater writes)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[<id-A> <-> <id-B>  one-line reason for the conflict]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Checks run: 5  |  Entries scanned: N  |  Blocking: N  Warnings: N  Info: N
+Checks run: 6  |  Entries scanned: N  |  Blocking: N  Warnings: N  Info: N  Proposed links: N
 ```
 
 If every check passes and nothing was demoted, emit a single line:
@@ -149,9 +180,11 @@ Coherence check clean — <commit-sha> — <date>
   PM's next session.
 - You do not re-derive findings the state-updater already surfaced —
   cross-reference and demote.
-- You do not propose fixes. The state-updater is the only writer.
+- You do not write state and you do not propose content edits. The one
+  thing you may propose is a `contradicts` link between two conflicting
+  entries; even then the PM approves and the state-updater writes it.
 - You do not follow more than one hop, except for the explicitly
-  global checks (1 and 4).
+  global checks (1, 4, and 6).
 - You do not flag prose mentions of an ID as a structured reference.
 
 ## When the repo is in an unusual state

@@ -4,7 +4,7 @@
 
 This document is the single reference for implementing the Project State system at Superstate. It contains everything needed to understand the concept, set up the infrastructure, and start using it on a real project.
 
-**Version 0.5.** Changes from v0.4 are listed in the changelog at Section 22. The big ones: `state-index.yaml` now has a full spec (§9.12), a v1 draft of the state-updater prompt is included (Appendix A), the coherence check runs on every commit, rule-to-rule conflict detection has a clear owner, sourcing in extraction reports uses topic + short quote instead of line ranges, project terminal state is simplified to `closed` + `outcome`, and repetition across sections has been cut.
+**Version 0.7.** The canonical entry format now lives in `docs/schema.md`; v0.7 added the trust layer, `sources/`, semantic links, per-repo language, and company-brain mode (see CLAUDE.md, `docs/schema.md`, and `docs/modes.md`). The earlier v0.4 → v0.5 changes are listed in the changelog at Section 22. The big ones: `state-index.yaml` now has a full spec (§9.12), a v1 draft of the state-updater prompt is included (Appendix A), the coherence check runs on every commit, rule-to-rule conflict detection has a clear owner, sourcing in extraction reports uses topic + short quote instead of line ranges, project terminal state is simplified to `closed` + `outcome`, and repetition across sections has been cut.
 
 ---
 
@@ -210,7 +210,7 @@ The difference between Case 3 and Case 4 is the story, not the mechanism. Case 3
 
 ## 6. Schema — Entry Types and Structure
 
-Twelve entry types. Each type is a folder with files of a specific structure. IDs follow **one letter + three digits** (`F001`, `R001`, `K001`). IDs are sequential within a type and never reused.
+Thirteen entry types. Each type is a folder with files of a specific structure. IDs follow **one letter + three digits** (`F001`, `R001`, `K001`). IDs are sequential within a type and never reused.
 
 | Entry Type | Format | ID Prefix | Purpose |
 |---|---|---|---|
@@ -221,13 +221,14 @@ Twelve entry types. Each type is a folder with files of a specific structure. ID
 | `flows/` | YAML | — (slug) | User journeys across features |
 | `rules/` | YAML | `R` | Business rules and constraints |
 | `integrations/` | YAML | — (slug) | Third-party services |
+| `sources/` | YAML | — (slug) | External document registry (links, never files) |
 | `decisions/` | Markdown + frontmatter | `D` | Architecture/product decisions |
 | `questions/` | Markdown + frontmatter | `Q` | Open questions to resolve |
 | `feedback/` | YAML + attachments folder | — (date-slug) | Raw feedback sessions |
 | `risks/` | Markdown + frontmatter | `K` | Known risks |
 | `stakeholders/` | Markdown + frontmatter | `S` | People at the client who matter |
 
-Roles, entities, flows, and integrations use slug-based IDs because they're identified by name. Features, rules, decisions, questions, and risks use letter+digit IDs because they accumulate and need stable short references.
+Roles, entities, flows, integrations, and sources use slug-based IDs because they're identified by name. Features, rules, decisions, questions, and risks use letter+digit IDs because they accumulate and need stable short references.
 
 ---
 
@@ -349,7 +350,7 @@ frequency-of-use: daily | weekly | monthly | occasional
 representative-personas:
   - id: persona-jane
     name: Jane Chen
-    inferred: false
+    confidence: asserted        # quote-backed; an AI-guessed persona is `derived`
     one-line-summary: Cautious 58-year-old investor, owns 4 buildings, distrusts new software
     background: >
       Multi-sentence narrative. Where they come from, what their day looks
@@ -397,12 +398,14 @@ provenance:
 
 - Target 3-5 personas per role. Fewer than 3 misses variation; more than 5
   becomes hard for testing agents to keep distinct.
-- `inferred: true` means the persona was proposed without direct client
-  source material. These must be validated by the PM before being treated
-  as canonical. Readiness check (G2) warns if any role has only inferred
-  personas.
+- `confidence: derived` means the persona was proposed without direct
+  client source material (the old `inferred: true`). These must be
+  validated by the PM before being treated as canonical. Readiness check
+  (G2) warns if any role has only `derived` personas. The `inferred` field
+  is removed in v0.7: skills read a legacy `inferred` as an alias
+  (`true` → `derived`, `false` → `asserted`) and never write it again.
 - Every persona should have at least one `quotes` entry linking to source
-  material. No quotes → persona is `inferred: true` by default.
+  material. No quotes → persona is `confidence: derived` by default.
 - `test-implications` is the bridge to the test plan generator. Without
   it, personas inform nothing mechanical.
 
@@ -621,6 +624,28 @@ provenance:
 **Required:** `id`, `name`, `purpose`
 
 **Never store credentials in integration entries.** API keys, webhook secrets, OAuth tokens live outside the state repo — in developer keychains, gitignored environment files, or secret managers. State references integrations by name.
+
+### 8.7b `sources/<source-slug>.yaml`
+
+Registry of **external documents** — descriptions and links, never the files
+themselves. Slug IDs (like integrations); `S###` belongs to stakeholders.
+
+```yaml
+id: pricing-sheet-2026
+name: 2026 Pricing Sheet
+kind: spreadsheet | document | url | dataset | contract | other
+location: https://drive.google.com/file/d/PLACEHOLDER   # the link, never the file
+covers: Per-tier subscription pricing and discount bands.
+status: active | unavailable | superseded
+last-checked: 2026-06-01
+provenance:
+  - date: 2026-06-01
+    source: feedback/2026-06-01-pricing-call
+```
+
+**Required:** `id`, `name`, `location`, `status`. Referencing a source is an
+ordinary typed reference (`references: {sources: [pricing-sheet-2026]}`). The
+folder ships empty with a `.gitkeep`; the canonical format is `docs/schema.md` §10.
 
 ### 8.8 `decisions/D<NNN>-<slug>.md`
 
@@ -998,7 +1023,7 @@ These rules are what makes the system work.
 
 13. **Pull before running the state-updater.** Get the latest IDs.
 
-14. **All state is in English.** If source material is in another language (commonly Bulgarian), translate before feeding to the state-updater. Keep both the original and the translation in `feedback/attachments/` with language suffixes.
+14. **Language is per-repo.** `project.yaml`'s `language` declares the primary content language (absent = `en`). Structure stays English — schema keys, IDs, statuses, controlled vocabularies; content is in the declared language, with quotes and domain terms kept verbatim. Keep non-English source material (and any translation) in `feedback/attachments/` with language suffixes.
 
 15. **Transcripts only, no raw media.** Audio and video are transcribed externally and discarded. Only transcripts commit.
 
@@ -1436,7 +1461,7 @@ doing anything else.
 6. Feedback entries are immutable after PM review.
 7. Never include credentials, API keys, or secrets. Flag suspected
    credentials in the extraction report.
-8. All state is in English. Translate non-English source material first.
+8. Language is per-repo (`project.yaml` `language`, absent = `en`): structure stays English, content in the declared language; keep non-English source material verbatim with language suffixes.
 9. Always `git pull` before running the state-updater.
 10. The state-updater maintains state-index.yaml as part of its own diff.
     Do not run a separate index rebuilder.

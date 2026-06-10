@@ -3,7 +3,7 @@ name: Acme Real Estate Management Platform
 client: Acme Holdings
 status: prototype
 outcome: null
-schema-version: "0.6"
+schema-version: "0.7"
 created: 2026-04-09
 last-updated: 2026-04-22
 current-owner: kaloian
@@ -19,9 +19,9 @@ strategic-context:
   client-size: small-enterprise
   deal-value-range: mid
 commercial:
-  decision-maker: S001
-  economic-buyer: S001
-  champion: S001
+  decision-maker: null
+  economic-buyer: null
+  champion: null
   blockers: []
   signing-representative: null
 lessons-learned: []

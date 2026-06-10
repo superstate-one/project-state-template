@@ -17,7 +17,12 @@ doing anything else.
 6. Feedback entries are immutable after PM review.
 7. Never include credentials, API keys, or secrets. Flag suspected
    credentials in the extraction report.
-8. All state is in English. Translate non-English source material first.
+8. Language is per-repo. `project.yaml`'s `language` declares the primary
+   content language (absent = `en`). Structure is always English — schema
+   keys, IDs, statuses, folder names, controlled vocabularies. Content
+   (titles, descriptions, rationale, quotes) is in the declared language.
+   Quotes and domain terms stay verbatim; skills never translate or "clean"
+   mixed phrases, and never write language arrays or per-field tags.
 9. Always `git pull` before running the state-updater.
 10. The state-updater maintains state-index.yaml as part of its own diff.
     Do not run a separate index rebuilder.
@@ -26,6 +31,83 @@ doing anything else.
     Prose mentions don't count.
 12. Coherence check runs automatically after every commit to catch
     what the state-updater missed.
+13. Anti-laundering: whenever a skill or generator uses a non-verified
+    claim, its trust label travels with it. A `derived` or `asserted`
+    claim may never be restated as established fact. Generation is never
+    blocked — a generator leaning on unverified critical claims adds a
+    soft nudge ("this leans on N unverified critical claims — run
+    verify-claim first?"); the human decides.
+
+## Trust labels
+
+Every entry may carry trust labels (all optional, safe defaults — this is
+what keeps pre-0.7 repos valid). Canonical format lives in `docs/schema.md`.
+
+- `confidence: verified | asserted | derived` — absent = `asserted`.
+  `verified` = a human confirmed it; `asserted` = someone said it, recorded
+  as-is; `derived` = the AI inferred it.
+- `asserted-by` — who said it (`client`, a stakeholder ID, a team member, an
+  AI agent like `voice-agent` / `state-updater`).
+- `claim-type: fact | preference | policy | estimate`.
+- `scope: global | team | person` — absent = `global`.
+- `re-verify-after: <date>` — optional expiry on trust.
+
+Rules:
+- **Only a human grants `verified`.** The AI never promotes its own claims.
+- **De-verify on modify:** any change to a `verified` entry resets its
+  confidence to `asserted`, flagged in the extraction report — unless a
+  listed verifier approves the change in the same session, in which case it
+  stays verified with a fresh provenance stamp. Verification covers an
+  entry's current content, never its history.
+- `confidence` is its own field; it never overloads `status`.
+- **Staleness is computed, never stored.** Any entry whose `re-verify-after`
+  is in the past is treated as stale at read time (verify-claim lists it
+  first, generators flag it). No `stale` field is ever written.
+- **`inferred` is removed.** Personas use `confidence`. Skills read a legacy
+  `inferred` as an alias (`true` → `derived`, `false` → `asserted`) and never
+  write it again.
+- **Who verifies:** project-state — anyone on the team. company-brain — the
+  `verifiers:` list in `project.yaml`.
+
+## Semantic links
+
+The index carries typed relationship links inside the `references` /
+`referenced-by` maps. The vocabulary is **only** these two pairs (new types
+require a schema bump):
+
+- `contradicts` / `contradicted-by` — these entries conflict.
+- `derived-from` / `derives` — this claim was inferred from that entry.
+
+`contradicts` links are proposed by the coherence check, approved by a human,
+and written by the state-updater; they persist until reconciliation clears
+them.
+
+## Modes
+
+This template runs in one of two modes, set at first-run and written to
+`project.yaml` as `mode: project-state | company-brain` (absent =
+`project-state`). The files are identical in both; behavior differences live
+in the skills, which branch on the flag. Full semantics — including the
+`visibility` mechanism, the access model, and `scope` vs `visibility` — are in
+`docs/modes.md`.
+
+In company-brain mode, `visibility: company | team/<slug> | restricted` is
+mandatory on every new entry (the state-updater rejects a diff that omits it;
+absent = `restricted`, fail-closed). Unused in project-state.
+
+## Schema-version authority
+
+The schema version appears in three places: `.claude/schema-version.yaml`
+(template-owned, updated by pulls), `project.yaml`, and the index header. The
+**single authority is `.claude/schema-version.yaml`** — it is what the update
+script gates on. The other two mean "schema at last content write," are
+informational, and are expected to lag.
+
+## Format authority
+
+`docs/schema.md` is the canonical format for every entry type. Skills follow
+it rather than looking in entry folders for examples — the template ships
+none.
 
 ## When new input arrives (transcript, memo, dev note, question answer)
 
@@ -70,7 +152,7 @@ state.
 The template (skills, generators, CLAUDE.md, schema, updater script) is
 maintained centrally; project state (roles, entities, features, flows,
 rules, decisions, questions, feedback, risks, stakeholders, integrations,
-generated, project.yaml, state-index.yaml) is local. To pull
+sources, generated, project.yaml, state-index.yaml) is local. To pull
 infrastructure updates without touching project state, use
 `scripts/update-from-template.sh`:
 
@@ -85,9 +167,9 @@ infrastructure updates without touching project state, use
 
 Project-owned directories (`roles/`, `entities/`, `features/`, `flows/`,
 `rules/`, `decisions/`, `questions/`, `feedback/`, `risks/`,
-`stakeholders/`, `integrations/`, `generated/`) and the `project.yaml` /
-`state-index.yaml` files are never touched by the updater. The full
-whitelist of template-owned paths is at the top of the script.
+`stakeholders/`, `integrations/`, `sources/`, `generated/`) and the
+`project.yaml` / `state-index.yaml` files are never touched by the updater.
+The full whitelist of template-owned paths is at the top of the script.
 
 If the schema major version differs, the updater refuses and points at
 `docs/updating-from-template.md` for migration guidance.
@@ -105,13 +187,17 @@ If the schema major version differs, the updater refuses and points at
 - `flows/<slug>.yaml` — user journeys
 - `rules/R<NNN>-<slug>.yaml` — business rules
 - `integrations/<slug>.yaml` — third-party services
+- `sources/<slug>.yaml` — external document registry (links, never files)
 - `decisions/D<NNN>-<slug>.md` — ADR-style decisions
 - `questions/Q<NNN>-<slug>.md` — open questions
-- `feedback/<date>-<slug>.yaml` — immutable session records
+- `feedback/<date>-<slug>.yaml` — immutable record of any raw ingested input
+  (transcripts, memos, emails, research)
 - `risks/K<NNN>-<slug>.md` — known risks
+- `stakeholders/S<NNN>-<slug>.md` — named people at the client
 
-IDs: one letter + three digits (F001, R001, D001, Q001, K001).
-Roles, entities, flows, integrations use slugs. IDs are never reused.
+IDs: one letter + three digits (F001, R001, D001, Q001, K001, S001).
+Roles, entities, flows, integrations, sources use slugs. IDs are never
+reused. See `docs/schema.md` for the canonical format of every type.
 
 ## Update cases
 
@@ -148,20 +234,26 @@ template (detected by `project.yaml` still containing placeholder values
 like "acme-realestate" or "Acme Holdings"), before processing any input:
 
 1. Ask the user for: project name, client name, industry, current owner,
-   and a 1-paragraph summary.
-2. Update `project.yaml` with these values. Set `status: discovery`,
-   `created` to today's date, `outcome: null`, `lessons-learned: []`.
+   a 1-paragraph summary, the **mode** (`project-state` or
+   `company-brain`), and the **language**. Language defaults to `en` in
+   project-state (override when the client domain demands it); in
+   company-brain it is a mandatory choice with no default. In
+   company-brain mode also ask for the **verifiers** list (who may grant
+   `verified`) and any **teams** (the slugs behind `team/<slug>`
+   visibility).
+2. Update `project.yaml` with these values, including `mode` and
+   `language`, and set `created` to today's date.
+   - **project-state:** `status: discovery`, `outcome: null`,
+     `lessons-learned: []`.
+   - **company-brain:** `status: active`; add `verifiers:` and `teams:`;
+     omit the commercial / outcome / lessons-learned / strategic-context
+     blocks.
 3. Update `README.md`: replace the "How to use this template" section
    with a project-specific "About this project" section that states
    the client, industry, and summary. Leave the rest of the README
    (folder layout, entry types, workflow, key rules) intact.
-4. Ask whether the user wants to clear the example entries (delete all
-   files in `roles/`, `entities/`, `features/`, `flows/`, `rules/`,
-   `integrations/`, `decisions/`, `questions/`, `feedback/`, `risks/`
-   and reset `state-index.yaml` to empty) or keep them as reference.
-   Default: clear.
-5. If cleared, also clear `state-index.yaml`: reset to schema header
-   plus empty `entries: []`.
-6. Commit with message: `init: project setup for <client-name>`.
+4. Commit with message: `init: project setup for <client-name>`.
 
-Do this once, on first interaction with a fresh clone.
+The template ships zero example entries, so there is nothing to clear —
+no keep-or-clear question. Do this once, on first interaction with a
+fresh clone.

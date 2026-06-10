@@ -13,6 +13,21 @@ apply to the new project's industry.
 3. Read `rules/` and accepted `decisions/` from matching projects.
 4. Read `lessons-learned` from matching project.yaml files.
 5. Propose candidates with source breadcrumbs.
+6. **Translate every candidate into the target repo's language** before
+   presenting (see below).
+
+## Language — translate on propose
+
+Archived projects are often in a different language from the new project (most
+Superstate clients are Bulgarian; some projects run in English). When you
+propose a candidate, render its content in the **target** repo's `language`
+(from the new project's `project.yaml`; absent = `en`) — a Bulgarian rule
+proposed into an English project is translated to English, and vice-versa.
+
+Translate the prose only: rule text, rationale, and lesson wording. Structure
+stays English — keys, IDs, statuses, severities. The `lesson-from:
+<source-project-id>` breadcrumb preserves the untranslated origin for anyone who
+wants the original.
 
 ## Output format (sketch)
 

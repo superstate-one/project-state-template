@@ -22,6 +22,24 @@ feedback cycles.
    // Part of flow: add-first-building
    ```
 
+## Gaps & confidence (document trailer)
+
+Every generated document ends with a **"Gaps & confidence"** section so the
+consuming agent never mistakes uncertainty for fact:
+
+- **Unverified claims it leans on** — entries whose `confidence` is not
+  `verified`, with their label carried forward (anti-laundering, CLAUDE.md
+  rule 13). If any are critical, add the soft nudge: "this document leans on N
+  unverified critical claims — run verify-claim first?" Never block generation.
+- **Stale entries (computed)** — entries whose `re-verify-after` is in the past,
+  computed at read time; no state is written.
+- **Blocking open questions** — `status: open` questions referenced by any
+  included entry.
+
+- **Missing pre-build documents** — list the project `design.md` and the code
+  repository's `CLAUDE.md` if either is absent (a second net behind the
+  readiness check's existence checks).
+
 ## Invocation
 
 "Claude, regenerate the build brief."
@@ -31,6 +49,8 @@ Output committed to `generated/build-brief.md` with message:
 
 ## Rules
 
+- Write the document in the repo's `language` (`project.yaml`; absent = `en`).
+  Keys, IDs, and statuses stay English; prose is in the declared language.
 - Skip features with `status: rejected | deferred`
 - Skip obsolete decisions and closed risks
 - Deterministic section ordering — regenerating with unchanged state
