@@ -113,8 +113,9 @@ def main(argv):
     if not result.endswith("\n"):
         result += "\n"
 
+    replaced_u = list(dict.fromkeys(replaced))   # de-dup for reporting (dupe patch ids)
     sys.stderr.write(
-        f"merged: {len(replaced)} replaced ({', '.join(replaced) or '-'}), "
+        f"merged: {len(replaced_u)} replaced ({', '.join(replaced_u) or '-'}), "
         f"{len(added)} added ({', '.join(added) or '-'}), "
         f"{len(order)} total; generated-at -> {now}\n"
     )

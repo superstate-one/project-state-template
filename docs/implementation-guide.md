@@ -844,96 +844,9 @@ No custom software is built. The team uses Anthropic's tools.
 
 ### CLAUDE.md — the repo-level instruction file
 
-At the root of every Project State repo. Claude Code and Claude Cowork read it automatically. Template content:
+At the root of every Project State repo. Claude Code and Claude Cowork read it automatically.
 
-```markdown
-# CLAUDE.md — Project State Instructions
-
-This is a Project State repository. You are maintaining a structured,
-machine-readable description of a client project. Read this file before
-doing anything else.
-
-## Core rules
-
-1. Never edit files in `generated/` directly.
-2. Humans normally don't edit canonical entries. Use the state-updater
-   skill to propose changes. Humans review and approve with line-item
-   granularity.
-3. Every state change appends to the affected entry's provenance.
-4. Never auto-commit. All state changes require explicit approval.
-5. Classify every proposed change as addition, refinement,
-   change-of-mind, or correction.
-6. Feedback entries are immutable after PM review.
-7. Never include credentials, API keys, or secrets. Flag suspected
-   credentials in the extraction report.
-8. Language is per-repo (`project.yaml` `language`, absent = `en`): structure stays English, content in the declared language; keep non-English source material verbatim with language suffixes.
-9. Always `git pull` before running the state-updater.
-10. The state-updater maintains state-index.yaml as part of its own diff.
-    Do not run a separate index rebuilder.
-11. Propagation is one hop only — entries that directly reference the
-    affected entry via structured fields. No transitive closure.
-    Prose mentions don't count.
-12. Coherence check runs automatically after every commit to catch
-    what the state-updater missed.
-
-## When new input arrives (transcript, memo, dev note, question answer)
-
-Use the state-updater skill at `.claude/skills/state-updater.md`.
-
-Read `state-index.yaml` first, then load only the entries affected by
-the input and their one-hop references.
-
-Propose a complete diff covering every directly-affected entry, every
-one-hop propagation target, AND the updated state-index.yaml.
-
-Produce THREE artifacts: extraction report (with high-risk items at
-the top, topic + short quote sourcing), structured diff (with direct
-vs propagated separation and line-item approval), and a draft
-feedback.yaml.
-
-Wait for human review before committing.
-
-## When asked to regenerate a view
-
-Use the appropriate generator at `.claude/generators/generate-<view>.md`.
-Generators are on-demand only. Skip rejected/deferred/obsolete entries
-by default.
-
-## When asked to check readiness for a phase
-
-Use the readiness-check skill at `.claude/skills/readiness-check.md`.
-
-## When code has diverged from state (phase gate triggered)
-
-Use the drift-detector skill at `.claude/skills/drift-detector.md`.
-Triggered by the gate approver at G5, G11, or G15.
-
-## When state has gotten into a bad shape
-
-Revert to the last known-good git commit and re-apply lost changes
-one at a time via the state-updater. Do not hand-repair corrupted
-state.
-
-## File layout
-
-[See Section 7 of the implementation guide.]
-
-## Entry types and ID conventions
-
-[Summarized from Section 8 — one letter + three digits.]
-
-## Update cases
-
-[Summarized from Section 5.]
-
-## Commit message format
-
-`<entry-ID>: <summary> per <source>`
-
-For cross-domain changes, @-mention the relevant owner.
-```
-
-Checked in with the template repo.
+**The authoritative CLAUDE.md is the file at the root of this template repo** — it ships to every project via the update script and is read automatically by Claude Code and Claude Cowork. This guide no longer embeds a copy (parallel copies only go stale). It covers: the 13 core rules, the trust labels, the two semantic link pairs, the two modes, schema-version and format authority, status transitions, and first-run setup.
 
 ### For developers: Claude Code
 
@@ -1021,7 +934,7 @@ Slower than hand-repair, but reliable. For the team's volume (a few state events
 
 **Day 1: Schema, template repo, CLAUDE.md**
 
-1. Create `superstate-project-template` GitHub repo (private).
+1. Create `project-state-template` GitHub repo (private).
 2. Set up folder structure from §7.
 3. Create `project.yaml` template with placeholder values.
 4. Add a `.gitkeep` to every entry folder — the template ships **zero example entries**; the format authority is `docs/schema.md`.
@@ -1067,7 +980,7 @@ Write `.claude/generators/generate-test-plan.md`. Layer 1 (Playwright) + Layer 2
 
 ### Phase 4: First real project (Day 8+)
 
-1. Clone `superstate-project-template` to create new client's repo.
+1. Clone `project-state-template` to create new client's repo.
 2. Run pattern library search if industry has prior projects.
 3. Seed with existing meeting transcript. Run state-updater. PM reviews. Approves.
 4. Generate build brief. Hand to coding agent.
@@ -1396,7 +1309,7 @@ Deliberate omissions so the system stays focused:
 - **No API specs as separate files.** Pinned API contracts become `decisions/` entries. Backend plan generator produces API specs as part of its output.
 - **No ticket tracking.** State is not Jira. Use a dedicated tool and link tickets back to state IDs.
 - **No time tracking.**
-- **No client-facing content.** Clients see prototype and delivered product only. Ad-hoc documentation if requested later.
+- **No client-facing content (project-state mode).** Clients see the prototype and delivered product only; ad-hoc documentation if requested later. In company-brain mode the repo's content IS the product, served to the client through the visibility-enforcing interface — see `docs/modes.md`.
 - **No deployment configuration.** Infrastructure, CI/CD, hosting live in the project's code repo.
 - **No secrets, credentials, or PII beyond what's structurally necessary.**
 - **No PRD.** Coding agents read state directly.
@@ -1430,6 +1343,19 @@ Deliberate omissions so the system stays focused:
 - **State-updater** — the prompt that reads input + state and proposes extraction report + diff + feedback.yaml draft. See `.claude/skills/state-updater.md`.
 - **Generator** — a prompt that reads state and produces a view.
 - **Closed + outcome** — project terminal state. `status: closed` means the project is over; `outcome: delivered | lost` records how it ended.
+- **Trust labels** — the optional per-entry fields `confidence`, `asserted-by`, `claim-type`, `scope`, `re-verify-after`. Canonical definitions in `docs/schema.md` §1.
+- **Confidence** — how much an entry is trusted: `verified` (human-confirmed) / `asserted` (recorded as said) / `derived` (AI-inferred). Absent = `asserted`. Only a human grants `verified`.
+- **De-verify on modify** — any change to a `verified` entry resets it to `asserted` unless a verifier approves in the same session.
+- **Stale (computed)** — an entry whose `re-verify-after` date has passed. Determined at read time; never stored as a field.
+- **Anti-laundering rule** — core rule #13: a non-verified claim's label travels with it wherever it is restated.
+- **verify-claim** — the skill that builds the verification to-do list from the index (computed, never stored) and routes human confirmations through the normal write path.
+- **Semantic link** — a typed relationship key inside the index's `references`/`referenced-by` maps. Exactly two pairs exist: `contradicts`/`contradicted-by` and `derived-from`/`derives`.
+- **Reconciliation** — the skill that resolves `contradicts` links: human picks the winner, state-updater updates the loser and clears the link.
+- **Source (entry type)** — a `sources/` entry: a registry record (link + description, never the file) for an external document. Slug IDs.
+- **Index patch** — the entry blocks the state-updater emits instead of rewriting `state-index.yaml`; merged deterministically by `scripts/merge-index-patch.py`.
+- **Mode** — `project-state` or `company-brain`, set in `project.yaml` at first-run; skills branch on it. See `docs/modes.md`.
+- **Visibility** — brain-mode access tier on every entry: `company` / `team/<slug>` / `restricted`. Absent = `restricted` (fail-closed).
+- **Verifiers** — the `project.yaml` list of humans who may grant `verified` in a company-brain.
 
 ---
 
@@ -1446,7 +1372,13 @@ Decision ────affects─────→ Feature / Entity / Integration
 Question ────blocks──────→ Feature / Rule / Decision
 Feedback ────drives──────→ (any entry type, via provenance)
 Risk ────────threatens───→ (any entry type)
+Stakeholder ─informs────→ project.yaml commercial section (project-state)
+(any entry) ─cites──────→ Source (via references: sources)
+(any entry) ─contradicts→ (any entry)   [semantic link; written after coherence-check proposal + approval]
+(any entry) ─derived-from→ (any entry)  [semantic link]
 ```
+
+Semantic links are the only edges that carry meaning beyond "references"; their vocabulary is fixed at two pairs (see CLAUDE.md and `docs/schema.md` §2).
 
 References flow in one direction. Flows reference features, but features do NOT carry a `related-flows` field. The index derives reverse lookups automatically.
 
