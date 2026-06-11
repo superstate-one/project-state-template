@@ -94,19 +94,41 @@ if git cat-file -e "$TEMPLATE_REMOTE/$TEMPLATE_BRANCH:.claude/schema-version.yam
   fi
 fi
 
-# Compute the diff. Only paths that actually exist on the template side
-# are considered — this lets the template remove infrastructure files
-# safely (removal will be applied at --apply time).
+# Compute the diff and the deletion set. `git checkout <remote> -- <path>` only
+# overlays files; it never removes them. Files that exist locally under a
+# whitelisted path but no longer exist on the template side were deleted (or
+# renamed) there — their removal will be applied at --apply time by the deletion
+# sync below. Paths absent on the template side are skipped here (no pathspec
+# noise) and handled entirely by that sync.
 echo
 echo "Changes from $TEMPLATE_REMOTE/$TEMPLATE_BRANCH on template-owned paths:"
 echo "---------------------------------------------------------------"
 HAS_DIFF=0
 for p in "${PATHS[@]}"; do
+  if ! git cat-file -e "$TEMPLATE_REMOTE/$TEMPLATE_BRANCH:$p" 2>/dev/null; then
+    continue   # absent on template side — deletion sync handles local copies
+  fi
   if ! git diff --quiet "$TEMPLATE_REMOTE/$TEMPLATE_BRANCH" -- "$p" 2>/dev/null; then
     HAS_DIFF=1
     git --no-pager diff --stat "$TEMPLATE_REMOTE/$TEMPLATE_BRANCH" -- "$p"
   fi
 done
+
+# Deletion sync: local tracked files under whitelisted paths that are not
+# present on the template side. Uses ONLY the PATHS array — nothing outside the
+# whitelist is ever considered.
+STALE=$(comm -23 \
+  <(git ls-files -- "${PATHS[@]}" | sort -u) \
+  <(for p in "${PATHS[@]}"; do \
+      git ls-tree -r --name-only "$TEMPLATE_REMOTE/$TEMPLATE_BRANCH" -- "$p" 2>/dev/null; \
+    done | sort -u))
+
+if [ -n "$STALE" ]; then
+  HAS_DIFF=1
+  echo
+  echo "Will delete (removed on template side):"
+  printf '%s\n' "$STALE" | sed 's/^/  /'
+fi
 
 if [ "$HAS_DIFF" = "0" ]; then
   echo "(no changes — already up to date)"
@@ -120,10 +142,25 @@ if [ "${1:-}" != "--apply" ]; then
   exit 0
 fi
 
-# Apply: check out template versions of whitelisted paths.
+# Apply: check out template versions per path (so a path that does not exist on
+# the template side does not abort the whole apply), then stage deletions for
+# files removed on the template side.
 echo
 echo "Staging template versions of whitelisted paths…"
-git checkout "$TEMPLATE_REMOTE/$TEMPLATE_BRANCH" -- "${PATHS[@]}"
+for p in "${PATHS[@]}"; do
+  if git cat-file -e "$TEMPLATE_REMOTE/$TEMPLATE_BRANCH:$p" 2>/dev/null; then
+    git checkout "$TEMPLATE_REMOTE/$TEMPLATE_BRANCH" -- "$p"
+  else
+    echo "note: '$p' does not exist on the template side — local copy handled by deletion sync"
+  fi
+done
+
+if [ -n "$STALE" ]; then
+  echo "Staging deletions removed on the template side…"
+  printf '%s\n' "$STALE" | while IFS= read -r f; do
+    [ -n "$f" ] && git rm -q -- "$f"
+  done
+fi
 
 echo
 echo "Done. Review with 'git diff --cached', then commit:"

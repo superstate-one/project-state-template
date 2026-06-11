@@ -31,6 +31,25 @@ import datetime
 ENTRY_START = re.compile(r'^  - id:[ \t]*("?)([^"\n#]+?)\1[ \t]*(?:#.*)?$', re.M)
 
 
+def _split_decoration(block):
+    """Split a block into (content, trailing_decoration).
+
+    Trailing decoration is the maximal suffix of lines that are blank or
+    comment-only (first non-blank char is '#') — typically a section divider
+    that textually trails this entry's block but visually belongs before the
+    next entry. The patch never emits it, so on replace we must carry it over.
+    """
+    lines = block.splitlines(keepends=True)
+    k = len(lines)
+    while k > 0:
+        stripped = lines[k - 1].strip()
+        if stripped == "" or stripped.startswith("#"):
+            k -= 1
+        else:
+            break
+    return "".join(lines[:k]), "".join(lines[k:])
+
+
 def split_entries(region: str):
     """Return (prefix, [(id, block), ...]) for text under `entries:`.
 
@@ -112,10 +131,14 @@ def main(argv):
     for bid, blk in patch_blocks:
         if bid in by_id:
             replaced.append(bid)
+            # Carry over any trailing section comment the old block held; the
+            # patch block never includes it and it must not be silently dropped.
+            _, deco = _split_decoration(by_id[bid])
+            by_id[bid] = (blk.rstrip("\n") + "\n" + deco) if deco.strip() else blk
         else:
             order.append(bid)
             added.append(bid)
-        by_id[bid] = blk
+            by_id[bid] = blk
 
     if not prefix.strip("\n"):
         prefix = "\n"                  # keep one blank line after `entries:`
