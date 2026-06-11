@@ -278,8 +278,8 @@ projects/<project-slug>/
 
 **Key notes:**
 
-- **Transcripts only, no raw media.** Audio/video is transcribed externally, the source media is discarded, only transcripts are committed. Keeps repo size manageable, avoids Git LFS.
-- **Source material is kept verbatim** in `feedback/attachments/` (with language suffixes if a translation exists alongside the original). Skills process in the repo's declared `language` and never translate or "clean" mixed phrases.
+- **Raw inputs live outside the repo (v0.8).** Audio/video is transcribed externally and the media discarded. Raw transcripts and recordings live in external storage (e.g. Drive) and are registered as `sources/` entries; the feedback entry's `raw-attachments` field carries the source slug(s). The human provides the transcript content to the state-updater **at run time** (pasted or as a temporarily attached file); the repo permanently stores only the feedback summary, the extracted items, and the source reference. `feedback/attachments/` remains valid for small non-raw artifacts (e.g. a client's annotated screenshot) and for pre-0.8 repos, whose committed transcripts stay where they are — the policy applies forward, not retroactively.
+- **Source material stays verbatim in its original language.** Skills process in the repo's declared `language` and never translate or "clean" mixed phrases.
 - **`CLAUDE.md` at repo root** is read automatically by Claude Code and Cowork.
 - **`state-index.yaml` is maintained by the state-updater** as part of every diff. No separate rebuilder.
 - **`generated/` has three files.** No PRD, no app-flow, no handoff.
@@ -357,10 +357,11 @@ name/handle, AI agents by fixed label (`voice-agent`, `state-updater`,
 **`feedback/`** — the immutable record of any raw ingested input (transcripts,
 memos, emails, research). Written once after PM review and never edited; if
 something is missed, create a new `internal-decision` entry that references it.
-Write-once lifecycle: raw files land in `feedback/attachments/<date-slug>/`; the
-state-updater drafts the entry alongside the diff and index patch; the PM
-reviews line-item; the approved entry, the canonical changes, and the index
-patch commit together. Notable types include `internal-decision`, `research`,
+Write-once lifecycle: raw files go to external storage and are registered as
+`sources/` entries (see §7 notes), their content provided to the state-updater
+at run time; the state-updater drafts the entry alongside the diff and index
+patch; the PM reviews line-item; the approved entry, the canonical changes,
+and the index patch commit together. Notable types include `internal-decision`, `research`,
 `ownership-change`, and `test-finding`.
 
 **`risks/`** — known risks. The risk `severity` scale is independent from feature
@@ -424,13 +425,13 @@ These rules are what makes the system work.
 
 11. **Post-meeting and internal decisions are their own events.** Team decisions outside client interactions become `internal-decision` feedback entries.
 
-12. **No secrets or credentials in the repo.** API keys, passwords, webhook secrets, OAuth tokens must never be committed. Transcripts must be scrubbed of credentials before being placed in `feedback/attachments/`. The state-updater flags suspected credentials in the extraction report and refuses to include them in diffs.
+12. **No secrets or credentials in the repo.** API keys, passwords, webhook secrets, OAuth tokens must never be committed. Transcripts must be scrubbed of credentials before being provided to the state-updater or uploaded to external storage. The state-updater flags suspected credentials in the extraction report and refuses to include them in diffs.
 
 13. **Pull before running the state-updater.** Get the latest IDs.
 
-14. **Language is per-repo.** `project.yaml`'s `language` declares the primary content language (absent = `en`). Structure stays English — schema keys, IDs, statuses, controlled vocabularies; content is in the declared language, with quotes and domain terms kept verbatim. Keep non-English source material (and any translation) in `feedback/attachments/` with language suffixes.
+14. **Language is per-repo.** `project.yaml`'s `language` declares the primary content language (absent = `en`). Structure stays English — schema keys, IDs, statuses, controlled vocabularies; content is in the declared language, with quotes and domain terms kept verbatim. Non-English source material (and any translation) lives in external storage, its `sources/` entry noting the language; small non-raw artifacts in `feedback/attachments/` use language suffixes.
 
-15. **Transcripts only, no raw media.** Audio and video are transcribed externally and discarded. Only transcripts commit.
+15. **No raw media or transcripts in the repo.** Audio and video are transcribed externally and discarded; transcripts live in external storage as `sources/` links. Only summaries and extracted items commit (see §7 notes).
 
 16. **Timestamp precision.** Human-authored dates use `YYYY-MM-DD`. Machine-generated timestamps use full ISO 8601 (`YYYY-MM-DDTHH:MM:SSZ`).
 
@@ -618,7 +619,7 @@ This is a natural division: state-updater = local, coherence check = global.
 
 A team member says:
 
-> "New feedback from the prototype review meeting yesterday. Transcript is at `feedback/attachments/2026-04-22-prototype-review/transcript.md`. Context: after the meeting we decided internally not to pursue the tenant self-service portal. Process it."
+> "New feedback from the prototype review meeting yesterday. The transcript is in Drive (link) — register it as a source; here's the text: [pasted transcript]. Context: after the meeting we decided internally not to pursue the tenant self-service portal. Process it."
 
 Claude:
 
@@ -996,14 +997,14 @@ Write `.claude/generators/generate-test-plan.md`. Layer 1 (Playwright) + Layer 2
 |---|---|
 | Lead arrives | Clone template repo, fill in `project.yaml` including `industry` and `current-owner` |
 | Pattern library search (optional) | If industry has prior projects, run `pattern-library-search`. PM reviews proposed rules/lessons, accepts applicable ones. |
-| AI deep research (optional) | Save to `feedback/attachments/<date>-research/` and process as `type: research` feedback. |
+| AI deep research (optional) | Store the research doc in external storage, register it as a `sources/` entry, and process its content as `type: research` feedback. |
 | PM reviews | Gate G1: pre-mapping validated before first client meeting |
 
 ### Phase 1 — Discovery
 
 | Action | State operation |
 |---|---|
-| First client meeting (transcribed externally) | Discard audio/video. Store transcript (translated to English if needed) in `feedback/attachments/<date>-first-meeting/`. State-updater produces extraction report + diff + draft feedback.yaml. |
+| First client meeting (transcribed externally) | Discard audio/video. Upload the transcript to external storage, register it as a `sources/` entry, and provide its content to the state-updater at run time. State-updater produces extraction report + diff + draft feedback.yaml. |
 | AI voice agent follow-up interview | Same pattern. Voice agent output always goes through state-updater. |
 | PM reviews extraction report against memory, then diff | Accepts / rejects / modifies items with line-item control. Iterates if needed. Feedback.yaml finalized with PM's decisions and committed. |
 | Internal post-meeting decisions | Short memo → state-updater as `internal-decision` feedback |

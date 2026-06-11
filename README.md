@@ -25,9 +25,11 @@ Full rationale and system design:
    it asks for the project/client details, the mode (project-state or
    company-brain), and the language, then fills `project.yaml`. The template
    ships **no example entries**, so there is nothing to clear.
-3. **Drop the first input** (transcript, memo, email, research) into
-   `feedback/attachments/<date-slug>/` and tell Claude to process it with the
-   state-updater skill.
+3. **Provide the first input** (transcript, memo, email, research) to Claude
+   at run time — pasted or temporarily attached — and tell it to process it
+   with the state-updater skill. Raw transcripts/recordings live in external
+   storage (e.g. Drive) registered as `sources/` entries; the repo keeps only
+   the feedback summary, extracted items, and source link.
 4. **Generate a build brief** when you're ready to build the prototype
    (project-state mode).
 
@@ -91,7 +93,7 @@ or obsolete entries.
 ```
 Event happens (meeting, feedback, dev note, test finding)
     ↓
-Drop transcript/memo into feedback/attachments/
+Provide transcript/memo to Claude (raw file → external storage, linked as sources/)
     ↓
 Tell Claude: "Process this with the state-updater"
     ↓

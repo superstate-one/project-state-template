@@ -72,9 +72,9 @@ thousands.**
 Every entry gets an embedding vector; new input is matched by *meaning*, not
 keywords ("cost of borrowing" finds the interest-rate rule). Requires real
 infrastructure: an embedding model, a vector store, and a sync step keeping
-vectors current with files. The reference implementation to study is GBrain
-(github.com/garrytan/gbrain): hybrid vector + keyword search, with a knowledge
-graph providing the largest retrieval-precision gain — note that this repo's
+vectors current with files. The pattern to study is hybrid vector + keyword
+search with a knowledge-graph layer (e.g. GBrain), where the knowledge graph
+provides the largest retrieval-precision gain — note that this repo's
 `references`/`referenced-by` maps already *are* that graph.
 
 **Only needed if Level 3's keyword recall demonstrably fails. With the
@@ -101,7 +101,10 @@ hundreds of approvals daily, leading to rubber-stamping, which silently
 defeats the trust system. Tiers route judgment calls to humans and bookkeeping
 to the AI, with `approved-by: auto-policy` keeping every auto-commit auditable.
 Trust labels make this safe: nothing auto-accepted ever claims more than
-`asserted`.
+`asserted`. The default is `auto-commit: false` (auto-tier bulk-accepted at
+review time, one keystroke per session); `true` — immediate commits for
+self-contained auto-tier items — is the posture to flip to per-repo when
+ingest volume actually demands it.
 
 **Fan-in threshold.** One-hop propagation bounds how *far* a change ripples,
 not how many entries sit one hop away. Hub entries (core entities like

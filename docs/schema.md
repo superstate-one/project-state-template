@@ -24,7 +24,11 @@ into a real repo is a bug.
 `entities/`, `flows/`, `integrations/`, `sources/`). IDs are sequential within a
 type and **never reused** — a rejected `F0014` keeps its number forever.
 Legacy three-digit IDs (pre-0.8 repos) are read as-is and never renumbered;
-new entries always get four digits.
+new entries always get four digits. The ID sequence is **numeric across both
+widths**: the next ID is the zero-padded-to-4 value of (highest numeric suffix
+in the type, regardless of width) + 1. A repo holding `F001`–`F041` mints
+`F0042` next — never `F0001`. (Accepted side effect: mixed widths sort oddly
+in lexical file listings.)
 
 **Provenance `approved-by` (v0.8).** A provenance line may carry
 `approved-by: <human> | auto-policy`. `auto-policy` marks a change committed
@@ -178,7 +182,7 @@ teams: [sales, engineering, finance]        # slugs behind team/<slug> visibilit
 
 # --- review policy (v0.8; both modes; whole block optional) ---
 review-policy:
-  auto-commit: true                         # absent = true; auto-tier changes commit immediately
+  auto-commit: false                        # absent = false; true = self-contained auto-tier changes commit immediately (scale posture — see docs/scaling.md)
   fan-in-threshold: 20                      # absent = 20; above this, an entry is a "hub"
 ```
 

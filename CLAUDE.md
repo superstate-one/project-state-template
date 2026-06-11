@@ -14,10 +14,11 @@ doing anything else.
 3. Every state change appends to the affected entry's provenance.
 4. Human-tier changes always require explicit human approval before
    commit. Auto-tier changes follow `review-policy.auto-commit` in
-   `project.yaml` (`true`, the default = the AI commits them
-   immediately; `false` = they are bulk-accepted at review time).
-   Every auto-committed change carries `approved-by: auto-policy` in
-   its provenance stamp.
+   `project.yaml` (`false`, the default = they are bulk-accepted at
+   review time; `true` = the AI commits self-contained auto-tier
+   changes immediately — the high-ingest-volume posture, see
+   `docs/scaling.md`). Every auto-accepted change carries
+   `approved-by: auto-policy` in its provenance stamp.
 5. Classify every proposed change as addition, refinement,
    change-of-mind, or correction.
 6. Feedback entries are immutable after PM review.
@@ -49,6 +50,12 @@ doing anything else.
     in the client's systems, referenced via `integrations/`. The
     state-updater rejects instance data at extraction and flags it in
     the extraction report, the same way it flags credentials.
+    Deliberate exceptions: `stakeholders/` (relationship records about
+    named people) and `sources/` (registered external documents) are
+    instance-shaped by design. "Instance data" means operational records
+    of the client's business domain — their customers, credits, orders,
+    transactions — not the people and documents this repo exists to
+    track.
 
 ## Trust labels
 
@@ -98,9 +105,15 @@ state-updater, recorded on the feedback entry's `extracted-items`).
   and verification remains human-only regardless of tier.
 
 Commit behavior is set by the `review-policy` block in `project.yaml`
-(`auto-commit: true | false`, default `true`; `fan-in-threshold: <N>`,
+(`auto-commit: true | false`, default `false`; `fan-in-threshold: <N>`,
 default `20`). Auto-tier activity is summarized in a digest in the
 extraction report rather than listed line-item.
+
+**Held vs. immediate:** an auto-tier item that depends on a human-tier
+item in the same run (propagates from it, or references an entry it
+creates) is `auto/held` — it commits only with its parent's approval and
+is dropped if the parent is rejected. Only self-contained `auto/immediate`
+items follow `auto-commit: true` immediate commit behavior.
 
 **Fan-in rule:** when a changed entry is referenced by more entries than
 `fan-in-threshold`, its spokes' mechanical updates are auto-tier by
@@ -248,4 +261,72 @@ If the schema major version differs, the updater refuses and points at
 - `risks/K<NNNN>-<slug>.md` — known risks
 - `stakeholders/S<NNNN>-<slug>.md` — named people at the client
 
-IDs: one letter + f
+IDs: one letter + four digits (`F0001`, `R0001`, `D0001`, `Q0001`, `K0001`,
+`S0001`). Legacy three-digit IDs in pre-0.8 repos are read as-is and never
+renumbered; new entries always get four digits. Roles, entities, flows,
+integrations, sources use slugs. IDs are never reused. See `docs/schema.md`
+for the canonical format of every type.
+
+## Update cases
+
+- **Case 1 — Addition:** new information, no conflict.
+- **Case 2 — Refinement:** tightens an existing entry without contradicting.
+- **Case 3 — Change of mind:** contradicts existing state; client changed direction.
+- **Case 4 — Correction:** old entry was never correct (error or misinterpretation).
+
+## Status transitions
+
+When a question is answered: set `status: answered`, fill `answered: <date>`
+and `answer-summary: <text>`. Keep the original body intact. Never delete
+the file.
+
+When a decision becomes obsolete: set `status: obsolete` and append a dated
+note to Provenance explaining what replaced it. Never delete.
+
+When a feature is rejected or deferred: set `status: rejected | deferred`.
+The entry stays in the repo forever; generators skip it by default.
+
+When a risk is closed: set `status: closed`. Do not delete. Closed risks
+remain available to the pattern library at archival.
+
+## Commit message format
+
+`<entry-ID>: <summary> per <source>`
+
+Auto-tier commits append the ` [auto]` suffix to the message.
+
+For cross-domain changes, @-mention the relevant owner.
+
+## First-run setup (when template is cloned for a new project)
+
+When this repository is opened for the first time after cloning from the
+template (detected by `project.yaml` still containing placeholder values
+like "acme-realestate" or "Acme Holdings"), before processing any input:
+
+1. Ask the user for: project name, client name, industry, current owner,
+   a 1-paragraph summary, the **mode** (`project-state` or
+   `company-brain`), and the **language**. Language defaults to `en` in
+   project-state (override when the client domain demands it); in
+   company-brain it is a mandatory choice with no default. In
+   company-brain mode also ask for the **verifiers** list (who may grant
+   `verified`), any **teams** (the slugs behind `team/<slug>` visibility),
+   and the **auto-commit posture** (`review-policy.auto-commit` — whether
+   auto-tier changes commit immediately or are bulk-accepted at review).
+2. Update `project.yaml` with these values, including `mode` and
+   `language`, and set `created` to today's date. Write the
+   `review-policy` block explicitly (`auto-commit`, `fan-in-threshold`)
+   so the policy is visible rather than implicit.
+   - **project-state:** `status: discovery`, `outcome: null`,
+     `lessons-learned: []`.
+   - **company-brain:** `status: active`; add `verifiers:` and `teams:`;
+     omit the commercial / outcome / lessons-learned / strategic-context
+     blocks.
+3. Update `README.md`: replace the "How to use this template" section
+   with a project-specific "About this project" section that states
+   the client, industry, and summary. Leave the rest of the README
+   (folder layout, entry types, workflow, key rules) intact.
+4. Commit with message: `init: project setup for <client-name>`.
+
+The template ships zero example entries, so there is nothing to clear —
+no keep-or-clear question. Do this once, on first interaction with a
+fresh clone.

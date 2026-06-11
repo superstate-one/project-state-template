@@ -26,5 +26,5 @@ commercial:
   signing-representative: null
 lessons-learned: []
 review-policy:
-  auto-commit: true
+  auto-commit: false
   fan-in-threshold: 20

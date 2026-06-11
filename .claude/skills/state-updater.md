@@ -32,7 +32,7 @@ Read `project.yaml` before anything else:
 - `language` (absent = `en`) is the repo's primary content language. Write all
   new content in it; keep quotes and domain terms verbatim. Never translate or
   "clean" mixed phrases.
-- `review-policy` (`auto-commit:` absent = `true`; `fan-in-threshold:` absent =
+- `review-policy` (`auto-commit:` absent = `false`; `fan-in-threshold:` absent =
   `20`) governs Step 4c tier assignment and Step 10 commit behavior.
 
 The canonical format for every entry and for the index is `docs/schema.md`.
@@ -203,6 +203,18 @@ Every proposed change gets `review-tier: human | auto`.
 Auto-tier changes always enter with `confidence: asserted`. Tier
 assignment never raises confidence; verification stays human-only.
 
+**Dependency marker (held vs. immediate).** Every auto-tier item
+additionally gets one of two markers:
+
+- `auto/held` — it propagates from, references, or otherwise depends on
+  a human-tier item in this same run. Held items commit only *after*
+  their parent is approved (bundled into the human-approved commit,
+  still stamped `approved-by: auto-policy`, still digest-reported). If
+  the parent is rejected, held items are dropped with it.
+- `auto/immediate` — self-contained: direct additions/refinements with
+  no human-tier parent in this run. Only these follow
+  `review-policy.auto-commit` immediate-commit behavior.
+
 **Fan-in rule:** when a changed entry's fan-in exceeds the threshold,
 its spokes' mechanical updates are auto-tier by definition and are
 reported as a single count line, not individually. The hub change
@@ -230,6 +242,12 @@ rule #14). If detected, flag it in the extraction report (same severity
 as credentials) and exclude it from the diff. If the instance reveals
 something general (a new field, a new rule, an edge case), propose the
 *type-level* change instead and cite the instance only as a short quote.
+
+Deliberate exceptions: `stakeholders/` (relationship records about named
+people) and `sources/` (registered external documents) are
+instance-shaped by design. "Instance data" means operational records of
+the client's business domain — their customers, credits, orders,
+transactions — not the people and documents this repo exists to track.
 
 ### Step 7 — Produce the extraction report
 
@@ -276,10 +294,13 @@ single count line ("84 references re-stamped — auto"), not listed.]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 AUTO-TIER DIGEST
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[Compact summary of all auto-tier items: counts by case and type,
-one line each ("3 additions: persona quote on buyer role, ..."),
-plus collapsed re-stamp counts. The PM can expand any line to
-full detail on request — nothing is hidden, only folded.]
+[Two groups: "committed now: N" (auto/immediate, only under
+auto-commit: true) and "held pending your review: N" (auto/held —
+commit or drop with their human-tier parent). Within each group,
+counts by case and type, one line each ("3 additions: persona quote
+on buyer role, ..."), plus collapsed re-stamp counts. The PM can
+expand any line to full detail on request — nothing is hidden, only
+folded.]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ITEMS I CHOSE NOT TO PROPOSE
@@ -291,7 +312,7 @@ PROPAGATION SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Direct changes: N
 Propagated changes: N
-Human-tier: N | Auto-tier: N (auto-commit: on|off)
+Human-tier: N | Auto-tier: N (immediate: N, held: N; auto-commit: on|off)
 state-index.yaml: will be updated to reflect the above
 Total files touched in diff: N
 ```
@@ -357,13 +378,17 @@ later commits.
 Present the extraction report inline.
 
 **Auto-tier handling.** If `review-policy.auto-commit` is `true`
-(default), commit the auto-tier changes immediately — one commit, message
-per the CLAUDE.md format with the ` [auto]` suffix, every provenance
-stamp carrying `approved-by: auto-policy`. The digest in the report tells
-the human what was committed; any digest item the human later disputes is
-reverted via a normal human-tier correction. If `auto-commit` is `false`,
+(non-default; absent = `false`), commit only the `auto/immediate` items
+right away — one commit, message per the CLAUDE.md format with the
+` [auto]` suffix, every provenance stamp carrying
+`approved-by: auto-policy`. `auto/held` items wait for their human-tier
+parent: if it is approved they commit bundled with it (still stamped
+`approved-by: auto-policy`, still digest-reported); if it is rejected
+they are dropped with it. If `auto-commit` is `false` (the default), all
 auto-tier items are held and bulk-accepted as part of the human's single
-approval below.
+approval below. The digest tells the human what was committed or held;
+any digest item the human later disputes is reverted via a normal
+human-tier correction.
 
 **Human-tier handling.** Wait for response. If the human rejects items
 and provides additional context, re-propose from Step 4 with that
@@ -376,9 +401,15 @@ Once approved, finalize the feedback.yaml with the human's decisions
 ## Rules you never break
 
 - Never commit a human-tier change without explicit human approval.
-  Auto-tier commits happen only under `review-policy.auto-commit: true`,
+  Immediate auto-tier commits happen only under
+  `review-policy.auto-commit: true`, only for `auto/immediate` items,
   always with `approved-by: auto-policy` provenance and the ` [auto]`
-  commit suffix.
+  commit suffix. Never commit an `auto/held` item before its human-tier
+  parent is approved.
+- New IDs are numeric across both widths: the next ID is the
+  zero-padded-to-four value of (highest numeric suffix in the type,
+  regardless of width) + 1. A legacy repo holding `F001`–`F041` mints
+  `F0042` next — never `F0001`.
 - Never classify as auto-tier when unsure — unsure means human-tier.
 - Never let auto-tier acceptance raise confidence; auto-accepted
   entries are always `asserted`.
