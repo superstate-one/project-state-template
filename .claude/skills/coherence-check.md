@@ -38,8 +38,8 @@ Compare every pair of rules in `rules/` (skip `status: obsolete`).
 Flag a pair as conflicting if:
 
 - They constrain the same field of the same entity with incompatible
-  bounds (e.g. R001 says `apartment.floor ≥ 0`, R007 says `floor ≤ -1`
-  is allowed for basements without exempting R001).
+  bounds (e.g. R0001 says `apartment.floor ≥ 0`, R0007 says `floor ≤ -1`
+  is allowed for basements without exempting R0001).
 - They prescribe mutually exclusive behaviours for the same trigger
   (e.g. two rules with the same `when` clause and contradictory `then`).
 - One rule's `when` is a strict subset of another's and their `then`
@@ -144,7 +144,7 @@ BLOCKING  (N)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [Check #] [IDs]  one-line description
   Detail: <what specifically conflicts and where>
-  Suggested next step: <e.g. "open state-updater session to refine R007">
+  Suggested next step: <e.g. "open state-updater session to refine R0007">
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WARNINGS  (N)

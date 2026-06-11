@@ -21,7 +21,7 @@ Drift report — <gate> — <date>
 
 File: src/components/BuildingCard.tsx
   - apartment-count rendered as dropdown (behavioral divergence)
-    → Conflicts with R001. Requires state review.
+    → Conflicts with R0001. Requires state review.
 
 File: src/pages/Dashboard.tsx
   - Added tooltip on income column (cosmetic)

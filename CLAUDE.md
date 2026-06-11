@@ -8,10 +8,16 @@ doing anything else.
 
 1. Never edit files in `generated/` directly.
 2. Humans normally don't edit canonical entries. Use the state-updater
-   skill to propose changes. Humans review and approve with line-item
-   granularity.
+   skill to propose changes. Humans review human-tier changes with
+   line-item granularity; auto-tier changes are handled per the review
+   tiers (see "Review tiers").
 3. Every state change appends to the affected entry's provenance.
-4. Never auto-commit. All state changes require explicit approval.
+4. Human-tier changes always require explicit human approval before
+   commit. Auto-tier changes follow `review-policy.auto-commit` in
+   `project.yaml` (`true`, the default = the AI commits them
+   immediately; `false` = they are bulk-accepted at review time).
+   Every auto-committed change carries `approved-by: auto-policy` in
+   its provenance stamp.
 5. Classify every proposed change as addition, refinement,
    change-of-mind, or correction.
 6. Feedback entries are immutable after PM review.
@@ -37,6 +43,12 @@ doing anything else.
     blocked — a generator leaning on unverified critical claims adds a
     soft nudge ("this leans on N unverified critical claims — run
     verify-claim first?"); the human decides.
+14. Types, never instances: the repo stores entity *definitions*, rules,
+    decisions, and policies — never individual records (a specific
+    customer, a specific credit, a specific order). Instance data lives
+    in the client's systems, referenced via `integrations/`. The
+    state-updater rejects instance data at extraction and flags it in
+    the extraction report, the same way it flags credentials.
 
 ## Trust labels
 
@@ -68,6 +80,32 @@ Rules:
   write it again.
 - **Who verifies:** project-state — anyone on the team. company-brain — the
   `verifiers:` list in `project.yaml`.
+
+## Review tiers
+
+Every proposed change carries `review-tier: human | auto` (assigned by the
+state-updater, recorded on the feedback entry's `extracted-items`).
+
+- **Human tier** — reviewed line-item by a human, always: change-of-mind
+  (Case 3), correction (Case 4), any change touching a `verified` entry,
+  critical rules, decisions, new `contradicts` links, the *direct* change
+  to a hub entry (fan-in above `review-policy.fan-in-threshold`), and
+  anything the AI is unsure how to classify. Unsure → human, always.
+- **Auto tier** — additions and refinements to non-critical, non-verified
+  entries, and mechanical propagation updates (reference re-stamps,
+  provenance appends on one-hop targets). Auto-tier changes always enter
+  with `confidence: asserted` — auto-acceptance never raises confidence,
+  and verification remains human-only regardless of tier.
+
+Commit behavior is set by the `review-policy` block in `project.yaml`
+(`auto-commit: true | false`, default `true`; `fan-in-threshold: <N>`,
+default `20`). Auto-tier activity is summarized in a digest in the
+extraction report rather than listed line-item.
+
+**Fan-in rule:** when a changed entry is referenced by more entries than
+`fan-in-threshold`, its spokes' mechanical updates are auto-tier by
+definition and reported as a count ("84 references re-stamped"); the hub
+change itself is always human-tier. Rationale: see `docs/scaling.md`.
 
 ## Semantic links
 
@@ -121,11 +159,18 @@ one-hop propagation target, AND the state-index.yaml changes (emitted as
 entry-block patches; see the state-updater skill).
 
 Produce THREE artifacts: extraction report (with high-risk items at
-the top, topic + short quote sourcing), structured diff (with direct
-vs propagated separation and line-item approval), and a draft
-feedback.yaml.
+the top, topic + short quote sourcing, human-tier items line-item and
+auto-tier items as a digest), structured diff (with direct vs
+propagated separation), and a draft feedback.yaml.
 
-Wait for human review before committing.
+Wait for human review of human-tier changes before committing them.
+Auto-tier changes follow `review-policy.auto-commit` (see "Review
+tiers").
+
+Raw transcripts and recordings are never stored in the repo: upload
+them to external file storage (e.g. Drive), register the link as a
+`sources/` entry, and have the feedback entry hold only the summary,
+extracted items, and source reference.
 
 ## When asked to regenerate a view
 
@@ -141,6 +186,13 @@ Use the readiness-check skill at `.claude/skills/readiness-check.md`.
 
 Use the drift-detector skill at `.claude/skills/drift-detector.md`.
 Triggered by the gate approver at G5, G11, or G15.
+
+## When the repo grows large
+
+`docs/scaling.md` defines the scaling levels (whole-index → two-tier
+index → grep query → embeddings) and the triggers for moving between
+them. Take no action until a trigger fires; when one does, follow that
+doc instead of improvising.
 
 ## When state has gotten into a bad shape
 
@@ -184,77 +236,16 @@ If the schema major version differs, the updater refuses and points at
 - `project.yaml` — top-level metadata, one per project
 - `roles/<slug>.yaml` — user roles
 - `entities/<slug>.yaml` — data entities
-- `features/F<NNN>-<slug>.yaml` — product features
+- `features/F<NNNN>-<slug>.yaml` — product features
 - `flows/<slug>.yaml` — user journeys
-- `rules/R<NNN>-<slug>.yaml` — business rules
+- `rules/R<NNNN>-<slug>.yaml` — business rules
 - `integrations/<slug>.yaml` — third-party services
 - `sources/<slug>.yaml` — external document registry (links, never files)
-- `decisions/D<NNN>-<slug>.md` — ADR-style decisions
-- `questions/Q<NNN>-<slug>.md` — open questions
+- `decisions/D<NNNN>-<slug>.md` — ADR-style decisions
+- `questions/Q<NNNN>-<slug>.md` — open questions
 - `feedback/<date>-<slug>.yaml` — immutable record of any raw ingested input
   (transcripts, memos, emails, research)
-- `risks/K<NNN>-<slug>.md` — known risks
-- `stakeholders/S<NNN>-<slug>.md` — named people at the client
+- `risks/K<NNNN>-<slug>.md` — known risks
+- `stakeholders/S<NNNN>-<slug>.md` — named people at the client
 
-IDs: one letter + three digits (F001, R001, D001, Q001, K001, S001).
-Roles, entities, flows, integrations, sources use slugs. IDs are never
-reused. See `docs/schema.md` for the canonical format of every type.
-
-## Update cases
-
-- **Case 1 — Addition:** new information, no conflict.
-- **Case 2 — Refinement:** tightens an existing entry without contradicting.
-- **Case 3 — Change of mind:** contradicts existing state; client changed direction.
-- **Case 4 — Correction:** old entry was never correct (error or misinterpretation).
-
-## Status transitions
-
-When a question is answered: set `status: answered`, fill `answered: <date>`
-and `answer-summary: <text>`. Keep the original body intact. Never delete
-the file.
-
-When a decision becomes obsolete: set `status: obsolete` and append a dated
-note to Provenance explaining what replaced it. Never delete.
-
-When a feature is rejected or deferred: set `status: rejected | deferred`.
-The entry stays in the repo forever; generators skip it by default.
-
-When a risk is closed: set `status: closed`. Do not delete. Closed risks
-remain available to the pattern library at archival.
-
-## Commit message format
-
-`<entry-ID>: <summary> per <source>`
-
-For cross-domain changes, @-mention the relevant owner.
-
-## First-run setup (when template is cloned for a new project)
-
-When this repository is opened for the first time after cloning from the
-template (detected by `project.yaml` still containing placeholder values
-like "acme-realestate" or "Acme Holdings"), before processing any input:
-
-1. Ask the user for: project name, client name, industry, current owner,
-   a 1-paragraph summary, the **mode** (`project-state` or
-   `company-brain`), and the **language**. Language defaults to `en` in
-   project-state (override when the client domain demands it); in
-   company-brain it is a mandatory choice with no default. In
-   company-brain mode also ask for the **verifiers** list (who may grant
-   `verified`) and any **teams** (the slugs behind `team/<slug>`
-   visibility).
-2. Update `project.yaml` with these values, including `mode` and
-   `language`, and set `created` to today's date.
-   - **project-state:** `status: discovery`, `outcome: null`,
-     `lessons-learned: []`.
-   - **company-brain:** `status: active`; add `verifiers:` and `teams:`;
-     omit the commercial / outcome / lessons-learned / strategic-context
-     blocks.
-3. Update `README.md`: replace the "How to use this template" section
-   with a project-specific "About this project" section that states
-   the client, industry, and summary. Leave the rest of the README
-   (folder layout, entry types, workflow, key rules) intact.
-4. Commit with message: `init: project setup for <client-name>`.
-
-The template ships zero example entries, so there is nothing to clear —
-no keep-or-clear question. Do this once, on first interaction with a
-fresh clone.
+IDs: one letter + f

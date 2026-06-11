@@ -188,29 +188,29 @@ Every proposed change is classified into one of four cases. The PM sees the clas
 
 **Case 2 — Refinement.** Additional detail that tightens or clarifies an existing entry without contradicting it.
 
-*Example:* Meeting 1, client says apartment count should accept any number. Meeting 3, client clarifies "nothing above 10,000." R001's rationale and test-scenarios are extended. Same ID, more precise. New provenance line.
+*Example:* Meeting 1, client says apartment count should accept any number. Meeting 3, client clarifies "nothing above 10,000." R0001's rationale and test-scenarios are extended. Same ID, more precise. New provenance line.
 
 **Case 3 — Change of mind.** New information that contradicts existing state because the client (or team) has genuinely changed direction.
 
-*Example:* Meeting 2 said investors manage properties directly. Meeting 5 introduces a property-manager role that handles day-to-day, with investors only seeing dashboards. F003's role access is rewritten.
+*Example:* Meeting 2 said investors manage properties directly. Meeting 5 introduces a property-manager role that handles day-to-day, with investors only seeing dashboards. F0003's role access is rewritten.
 
-*Handling:* Entry is overwritten in place. Git preserves history. Provenance explains the change. Commit message is explicit: `F003: removed day-to-day management per client change-of-mind 2026-05-20`.
+*Handling:* Entry is overwritten in place. Git preserves history. Provenance explains the change. Commit message is explicit: `F0003: removed day-to-day management per client change-of-mind 2026-05-20`.
 
 **Case 4 — Correction.** The old entry was never correct. Transcription error, misheard statement, misinterpretation.
 
 *Example:* Voice agent transcript said "weekly rent collection." PM realizes the client actually said "monthly."
 
-*Handling:* Same mechanism as Case 3. Commit message calls it a correction: `R003: corrected rent frequency from weekly to monthly — transcription error, confirmed 2026-04-22`.
+*Handling:* Same mechanism as Case 3. Commit message calls it a correction: `R0003: corrected rent frequency from weekly to monthly — transcription error, confirmed 2026-04-22`.
 
 The difference between Case 3 and Case 4 is the story, not the mechanism. Case 3 says "client changed direction." Case 4 says "we had it wrong from the start." Provenance and commit message must make clear which.
 
-**Why no supersession (no ID-preservation).** An earlier design considered assigning new IDs (F003 → F018) and marking the old "superseded." Rejected because git already preserves the change log, many entries reference F003 and rewriting all references on every change is painful, and the discipline cost outweighs the benefit at Superstate's scale.
+**Why no supersession (no ID-preservation).** An earlier design considered assigning new IDs (F0003 → F0018) and marking the old "superseded." Rejected because git already preserves the change log, many entries reference F0003 and rewriting all references on every change is painful, and the discipline cost outweighs the benefit at Superstate's scale.
 
 ---
 
 ## 6. Schema — Entry Types and Structure
 
-Thirteen entry types. Each type is a folder with files of a specific structure. IDs follow **one letter + three digits** (`F001`, `R001`, `K001`). IDs are sequential within a type and never reused.
+Thirteen entry types. Each type is a folder with files of a specific structure. IDs follow **one letter + four digits** (`F0001`, `R0001`, `K0001`). IDs are sequential within a type and never reused.
 
 | Entry Type | Format | ID Prefix | Purpose |
 |---|---|---|---|
@@ -338,7 +338,7 @@ or anywhere in the repo; they live in keychains, gitignored env files, or secret
 managers.
 
 **`sources/`** — registry of external documents: descriptions and links, **never
-the files themselves**. Slug IDs (like integrations; `S###` belongs to
+the files themselves**. Slug IDs (like integrations; `S####` belongs to
 stakeholders). Status vocabulary is `active | unavailable | superseded`.
 Referencing a source is an ordinary typed reference
 (`references: {sources: [<slug>]}`).
@@ -412,7 +412,7 @@ These rules are what makes the system work.
 
 5. **One concept per file.**
 
-6. **Reference by ID.** Inside YAML, use raw IDs (`F003`, `R001`). Inside markdown, use links: `[F003](../features/F003-portfolio-dashboard.yaml)`. Grep-friendly and clickable.
+6. **Reference by ID.** Inside YAML, use raw IDs (`F0003`, `R0001`). Inside markdown, use links: `[F0003](../features/F0003-portfolio-dashboard.yaml)`. Grep-friendly and clickable.
 
 7. **Commit to git with meaningful messages.** `<ID>: <change> per <source>`. For cross-domain changes, @-mention the relevant teammate.
 
@@ -482,7 +482,7 @@ Propagation is limited to one hop of direct references from the `referenced-by` 
 
 If a multi-hop consequence is actually needed (rare), it surfaces naturally through subsequent inputs — the PM notices after the diff lands and feeds a short memo back to the state-updater.
 
-**Prose mentions don't trigger propagation.** A decision document that says "this relates to F003 as discussed earlier" is not treated as a reference. Only structured YAML fields and markdown frontmatter count. This prevents casual mentions from dragging unrelated entries into every diff.
+**Prose mentions don't trigger propagation.** A decision document that says "this relates to F0003 as discussed earlier" is not treated as a reference. Only structured YAML fields and markdown frontmatter count. This prevents casual mentions from dragging unrelated entries into every diff.
 
 ### The extraction report
 
@@ -494,7 +494,7 @@ Extraction report — 2026-04-22-prototype-review
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HIGH-RISK ITEMS (read these first)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Item 5: Case 3 (change-of-mind) on R001 — rewrites a critical rule
+- Item 5: Case 3 (change-of-mind) on R0001 — rewrites a critical rule
 - Item 7: Conflict with existing state — classified as Case 4 (correction)
 - Credential warning: possible API key in transcript near the Stripe
   discussion — NOT included in diff; confirm redaction
@@ -512,17 +512,17 @@ TOPICS COVERED IN INPUT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DIRECT CHANGES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. F002: add property-manager to roles
+1. F0002: add property-manager to roles
    Case: refinement
    Source: property manager scope — "they handle day-to-day,
    not the investors"
 
-2. [new] F015: Property manager dashboard (status: proposed)
+2. [new] F0015: Property manager dashboard (status: proposed)
    Case: addition
    Source: new PM dashboard — "PM needs their own view
    with only their buildings"
 
-3. [new] Q012: Data scope for PM dashboard
+3. [new] Q0012: Data scope for PM dashboard
    Case: addition
    Source: data scope question — "not sure if they should see
    tenant financials"
@@ -530,10 +530,10 @@ DIRECT CHANGES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PROPAGATED CHANGES (each approvable individually)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-4. F008: add property-manager to roles
-   Propagated from: change 1 (F002 gained property-manager)
-   Reason: F008 references F002 as a prerequisite; may inherit roles.
-   PM attention recommended: does F008 really need PM access?
+4. F0008: add property-manager to roles
+   Propagated from: change 1 (F0002 gained property-manager)
+   Reason: F0008 references F0002 as a prerequisite; may inherit roles.
+   PM attention recommended: does F0008 really need PM access?
 
 5. property-manager.yaml: create new role file
    Propagated from: change 1 (new role referenced)
@@ -609,7 +609,7 @@ The live `.claude/skills/coherence-check.md` is the authoritative coherence-chec
 ### Rule-to-rule conflict detection
 
 Two layers:
-- **State-updater** catches conflicts *within its one-hop scope*. If it's editing R001 and R014 is a direct reference target, it sees both and flags incompatibilities in the extraction report.
+- **State-updater** catches conflicts *within its one-hop scope*. If it's editing R0001 and R0014 is a direct reference target, it sees both and flags incompatibilities in the extraction report.
 - **Coherence check** catches *global* rule conflicts — rules that don't reference each other but contradict semantically.
 
 This is a natural division: state-updater = local, coherence check = global.
@@ -677,8 +677,8 @@ The build brief is the most important generator because it prevents the prototyp
 7. **Routing map** — how pages connect.
 8. **State backlink conventions** — every generated code file must include header comments:
    ```
-   // Generated from: F001, F002
-   // Enforces: R001
+   // Generated from: F0001, F0002
+   // Enforces: R0001
    // Part of flow: add-first-building
    ```
    This makes code traceable back to state and makes the drift detector possible.
@@ -731,9 +731,9 @@ Generator behavior: aggregates all `logic-gap-probes` into a prioritized list, e
 Canonical example of catching a logic gap:
 
 In state:
-- R001 says "apartment count must accept any positive integer."
-- R001 test-scenarios includes `input: 28, category: typical-non-round, expected: accepted`.
-- R001 logic-gap-probes says "probe very large numbers, numbers with commas or decimals, whitespace, paste-from-spreadsheet scenarios."
+- R0001 says "apartment count must accept any positive integer."
+- R0001 test-scenarios includes `input: 28, category: typical-non-round, expected: accepted`.
+- R0001 logic-gap-probes says "probe very large numbers, numbers with commas or decimals, whitespace, paste-from-spreadsheet scenarios."
 
 When the test plan generates:
 - Layer 1 emits a Playwright test: "enter 28 into apartment count field, expect success."
@@ -815,14 +815,14 @@ When the coding agent hits a gap, it emits a **structured question block** inlin
 ```
 STATE GAP ENCOUNTERED
 
-Context: Implementing F008 (apartment detail page).
+Context: Implementing F0008 (apartment detail page).
 Gap: Build brief doesn't specify what happens when an apartment
      has no lease attached.
 Options I see:
   a) Show "No lease" placeholder
   b) Hide the lease section entirely
   c) Link to "Add lease" flow
-Recommendation: (a) — matches F012's empty-state pattern.
+Recommendation: (a) — matches F0012's empty-state pattern.
 Waiting for human input.
 ```
 
@@ -1121,9 +1121,9 @@ Discovery readiness check — 2026-05-03
 
 ✅ 3 roles defined, all with provenance
 ✅ 4 entities defined, all with at least one field
-⚠️  F007: no acceptance criteria
-⚠️  F011: status is "approved" but Q009 is still open and blocks it
-❌  R003: rationale is empty
+⚠️  F0007: no acceptance criteria
+⚠️  F0011: status is "approved" but Q0009 is still open and blocks it
+❌  R0003: rationale is empty
 ✅ 5 flows cover all approved features
 ✅ All approved features referenced by at least one flow
 
@@ -1163,13 +1163,13 @@ Found 3 matching archived projects: acme-2025q3, bryce-holdings-2025q4, delta-re
 Candidate rules:
 
 1. Apartment count must accept any positive integer
-   (from acme-2025q3, was R001 there)
+   (from acme-2025q3, was R0001 there)
    Rationale: Real buildings have non-round apartment counts.
    Severity: critical
    Used in 2 of 3 past projects. Recommended.
 
 2. Leases cannot overlap on the same apartment
-   (from bryce-holdings-2025q4, was R014 there)
+   (from bryce-holdings-2025q4, was R0014 there)
    Rationale: Double-booking is a data integrity failure.
    Severity: critical
    Used in 1 of 3. Consider if this project handles leases.
@@ -1268,8 +1268,8 @@ This document describes schema **v0.7**.
 - Added: status-transitions section in CLAUDE.md covering how to
   transition questions, decisions, features, and risks through their
   status values.
-- Fixed: R001 index entry incorrectly listed `apartment` in `referenced-by`.
-  Only `building` references R001.
+- Fixed: R0001 index entry incorrectly listed `apartment` in `referenced-by`.
+  Only `building` references R0001.
 - Removed: duplicate copy of the implementation guide at repo root.
   Only `docs/implementation-guide.md` remains.
 - Deferred (not in v0.6): company state repo, offer generator, contract

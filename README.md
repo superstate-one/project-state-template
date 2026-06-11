@@ -42,17 +42,17 @@ Full rationale and system design:
 │
 ├── roles/                      # User roles and personas
 ├── entities/                   # Data entities and field definitions
-├── features/                   # Product features (F001, F002, …)
+├── features/                   # Product features (F0001, F0002, …)
 ├── flows/                      # User journeys across features
-├── rules/                      # Business rules and constraints (R001, R002, …)
+├── rules/                      # Business rules and constraints (R0001, R0002, …)
 ├── integrations/               # Third-party services
 ├── sources/                    # External document registry (links, never files)
-├── decisions/                  # Architecture/product decisions (D001, D002, …)
-├── questions/                  # Open questions to resolve (Q001, Q002, …)
+├── decisions/                  # Architecture/product decisions (D0001, D0002, …)
+├── questions/                  # Open questions to resolve (Q0001, Q0002, …)
 ├── feedback/                   # Immutable raw ingested input
 │   └── attachments/
-├── risks/                      # Known risks (K001, K002, …)
-├── stakeholders/               # Named people at the client (S001, S002, …)
+├── risks/                      # Known risks (K0001, K0002, …)
+├── stakeholders/               # Named people at the client (S0001, S0002, …)
 │
 ├── docs/                       # schema.md, modes.md, implementation-guide.md, …
 ├── scripts/                    # Template-owned helpers (update-from-template, …)
@@ -71,12 +71,12 @@ Entry folders ship empty — a `.gitkeep` keeps them in git.
 
 | Type | ID format | Example |
 |---|---|---|
-| Feature | `F` + 3 digits | `F001`, `F042` |
-| Rule | `R` + 3 digits | `R001`, `R014` |
-| Decision | `D` + 3 digits | `D001`, `D007` |
-| Question | `Q` + 3 digits | `Q001`, `Q012` |
-| Risk | `K` + 3 digits | `K001`, `K003` |
-| Stakeholder | `S` + 3 digits | `S001`, `S002` |
+| Feature | `F` + 4 digits | `F0001`, `F0042` |
+| Rule | `R` + 4 digits | `R0001`, `R0014` |
+| Decision | `D` + 4 digits | `D0001`, `D0007` |
+| Question | `Q` + 4 digits | `Q0001`, `Q0012` |
+| Risk | `K` + 4 digits | `K0001`, `K0003` |
+| Stakeholder | `S` + 4 digits | `S0001`, `S0002` |
 | Role | slug | `investor`, `property-manager` |
 | Entity | slug | `building`, `apartment` |
 | Flow | slug | `add-first-building` |

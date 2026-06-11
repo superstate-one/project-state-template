@@ -1,13 +1,17 @@
 # Project State — Schema Reference
 
-**Schema version 0.7.** This document is the **format authority** for every entry
-type in a Project State or company-brain repository. When a skill needs to know
+**Schema version 0.8.** This document is the **format authority** for every entry
+type in a Project State or company-brain repository. v0.8 adds: four-digit IDs
+for new entries, `review-tier` on feedback `extracted-items`, `approved-by` on
+provenance lines, the `review-policy` block in `project.yaml`, and the
+raw-attachments-live-externally policy. All additions are optional with safe
+defaults — pre-0.8 repos stay valid. When a skill needs to know
 what an entry looks like — which fields exist, which are required, what the
 controlled vocabularies are — it follows this document. The template ships **no
 example entries**; this file replaces them. Skills must never look in an entry
 folder expecting examples.
 
-All placeholder values below (`acme-realestate`, `Jane Chen`, `S001`, etc.) are
+All placeholder values below (`acme-realestate`, `Jane Chen`, `S0001`, etc.) are
 **obviously fake**. They illustrate shape, not content. Copying them verbatim
 into a real repo is a bug.
 
@@ -15,10 +19,17 @@ into a real repo is a bug.
 
 ## 0. Conventions that apply everywhere
 
-**IDs.** One letter + three digits for accumulating types (`F001`, `R001`,
-`D001`, `Q001`, `K001`, `S001`). Slugs for name-identified types (`roles/`,
+**IDs.** One letter + four digits for accumulating types (`F0001`, `R0001`,
+`D0001`, `Q0001`, `K0001`, `S0001`). Slugs for name-identified types (`roles/`,
 `entities/`, `flows/`, `integrations/`, `sources/`). IDs are sequential within a
-type and **never reused** — a rejected `F014` keeps its number forever.
+type and **never reused** — a rejected `F0014` keeps its number forever.
+Legacy three-digit IDs (pre-0.8 repos) are read as-is and never renumbered;
+new entries always get four digits.
+
+**Provenance `approved-by` (v0.8).** A provenance line may carry
+`approved-by: <human> | auto-policy`. `auto-policy` marks a change committed
+under the auto tier (see CLAUDE.md "Review tiers") — it is permanent evidence
+that no human reviewed that change line-item, and makes auto-commits greppable.
 
 **Provenance is mandatory.** Every entry records where its content came from.
 Provenance is a *list*, appended to on every change, never rewritten. An entry
@@ -26,8 +37,8 @@ with no provenance is a bug. YAML entries carry a `provenance:` list; markdown
 entries carry a `## Provenance` section.
 
 **References vs. prose.** Cross-references live in structured fields
-(`roles: [investor]`, `related-rules: [R001]`) and markdown frontmatter only.
-A prose sentence "this relates to F003" is **not** a reference and never appears
+(`roles: [investor]`, `related-rules: [R0001]`) and markdown frontmatter only.
+A prose sentence "this relates to F0003" is **not** a reference and never appears
 in the index's `referenced-by`. Only structured references drive propagation.
 
 **Language.** Structure is always English — schema keys, IDs, statuses, folder
@@ -53,7 +64,7 @@ trust this, and who said it."
 
 ```yaml
 confidence: verified | asserted | derived   # default: asserted
-asserted-by: client | S001 | kaloian | voice-agent | state-updater
+asserted-by: client | S0001 | kaloian | voice-agent | state-updater
 claim-type: fact | preference | policy | estimate
 scope: global | team | person               # default: global
 re-verify-after: 2026-12-01                  # optional expiry on trust
@@ -62,7 +73,7 @@ re-verify-after: 2026-12-01                  # optional expiry on trust
 | Label | Question | Values & default |
 |---|---|---|
 | `confidence` | How much do we trust this? | `verified` (a human confirmed it) · `asserted` (someone said it, recorded as-is) · `derived` (the AI inferred it, nobody said it). **Absent = `asserted`.** |
-| `asserted-by` | Who said it? | `client`, a stakeholder ID (`S001`), a team member (`kaloian`), or an AI agent (`voice-agent`, `state-updater`) |
+| `asserted-by` | Who said it? | `client`, a stakeholder ID (`S0001`), a team member (`kaloian`), or an AI agent (`voice-agent`, `state-updater`) |
 | `claim-type` | What kind of statement? | `fact`, `preference`, `policy`, `estimate` |
 | `scope` | Who does the claim apply to? | `global`, `team`, `person`. **Absent = `global`.** |
 | `re-verify-after` | When does this trust expire? | a date; optional |
@@ -74,7 +85,7 @@ re-verify-after: 2026-12-01                  # optional expiry on trust
   (`verified by jane, 2026-06-10`).
 - **De-verify on modify.** Any modification to a `verified` entry resets its
   `confidence` to `asserted`, and the change is flagged in the extraction report
-  ("this change de-verifies F012") — *unless* a listed verifier approves the
+  ("this change de-verifies F0012") — *unless* a listed verifier approves the
   change in the same session, in which case it stays `verified` with a fresh
   provenance stamp. Verification applies to an entry's *current content*, never
   its history.
@@ -138,7 +149,7 @@ mode: project-state | company-brain        # absent = project-state
 language: en                               # absent = en; brain mode: mandatory, no default
 status: discovery | spec | prototype | deal-signed | building | testing | delivered | closed
                                            # brain mode: active | paused
-schema-version: "0.7"                       # schema at last content write (informational; lags)
+schema-version: "0.8"                       # schema at last content write (informational; lags)
 created: 2026-04-09
 last-updated: 2026-04-09
 current-owner: kaloian
@@ -164,6 +175,11 @@ lessons-learned: []                         # filled in when moving to 'closed'
 # --- company-brain only (omit the project-state block above) ---
 verifiers: [jane, kaloian]                  # who may grant `verified`
 teams: [sales, engineering, finance]        # slugs behind team/<slug> visibility
+
+# --- review policy (v0.8; both modes; whole block optional) ---
+review-policy:
+  auto-commit: true                         # absent = true; auto-tier changes commit immediately
+  fan-in-threshold: 20                      # absent = 20; above this, an entry is a "hub"
 ```
 
 **Required:** `id`, `name`, `client`, `status`, `schema-version`, `created`,
@@ -267,7 +283,7 @@ fields:
   - name: apartment-count
     type: integer
     required: true
-    constraints: [R001]
+    constraints: [R0001]
   - name: owner
     type: reference
     references: investor
@@ -293,10 +309,10 @@ regenerated).
 
 ---
 
-## 6. `features/F<NNN>-<slug>.yaml`
+## 6. `features/F<NNNN>-<slug>.yaml`
 
 ```yaml
-id: F002
+id: F0002
 title: Bulk import apartments into a building
 status: proposed | approved | in-prototype | in-build | complete | deferred | rejected
 priority: must-have | should-have | nice-to-have
@@ -305,7 +321,7 @@ description: >
   each one manually.
 roles: [investor, property-manager]
 related-entities: [building, apartment]
-related-rules: [R001]
+related-rules: [R0001]
 acceptance-criteria:
   - User can enter any positive integer for apartment count
   - User can optionally upload a CSV for apartment details
@@ -316,7 +332,7 @@ ui-notes: >
   Optional free-text hints for the prototype builder.
 backend-notes: >
   Optional free-text hints for backend considerations.
-open-questions: [Q007]
+open-questions: [Q0007]
 confidence: asserted          # trust layer (optional; §1)
 asserted-by: client
 provenance:
@@ -351,18 +367,18 @@ preconditions:
 steps:
   - step: 1
     action: User clicks "Add Building"
-    feature: F001
+    feature: F0001
     expected-ui: Building creation modal appears
   - step: 2
     action: User enters building address and apartment count
-    feature: F001
-    rules-enforced: [R001]
+    feature: F0001
+    rules-enforced: [R0001]
     expected-ui: Inline validation feedback on apartment count
 success-criteria:
   - Building record exists with correct address and apartment count
   - Dashboard shows the new building
 failure-modes:
-  - User enters invalid apartment count → R001 error, step 2 blocks
+  - User enters invalid apartment count → R0001 error, step 2 blocks
 test-persona-hints: >
   Realistic investor personas: cautious first-timer reading every tooltip;
   experienced user tabbing through quickly.
@@ -378,18 +394,18 @@ Flows without `preconditions`, `expected-ui`, `failure-modes`, and
 
 ---
 
-## 8. `rules/R<NNN>-<slug>.yaml`
+## 8. `rules/R<NNNN>-<slug>.yaml`
 
 Rules are the primary source of test scenarios and the primary defense against
 logic gaps.
 
 ```yaml
-id: R001
+id: R0001
 rule: Apartment count must accept any positive integer
 rationale: >
   Real buildings have non-round apartment counts. Dropdowns or fixed lists
   always miss real-world cases.
-enforced-in-features: [F001, F002]
+enforced-in-features: [F0001, F0002]
 enforced-in-entities:
   - entity: building
     field: apartment-count
@@ -425,14 +441,14 @@ id: stripe
 name: Stripe
 purpose: Payment processing for tenant rent collection
 phase: backend
-features-using: [F012, F013]
+features-using: [F0012, F0013]
 data-flows:
   - direction: outbound
     data: payment intent
   - direction: inbound
     data: webhook notification
-decisions: [D004]
-open-questions: [Q009]
+decisions: [D0004]
+open-questions: [Q0009]
 provenance:
   - date: 2026-04-09
     source: feedback/2026-04-09-first-meeting
@@ -450,7 +466,7 @@ the repo. State references integrations by name only.
 A registry of **external documents** — descriptions and links, **never the files
 themselves**. One small YAML per source: what it is, where it lives, what it
 covers, when last checked. Identified by slug (like integrations), because a
-source is known by name — **not** `S###`, which belongs to stakeholders.
+source is known by name — **not** `S####`, which belongs to stakeholders.
 
 ```yaml
 id: pricing-sheet-2026
@@ -482,13 +498,13 @@ creates entries when external documents are mentioned.
 
 ---
 
-## 11. `decisions/D<NNN>-<slug>.md`
+## 11. `decisions/D<NNNN>-<slug>.md`
 
 ADR-style. Markdown with YAML frontmatter.
 
 ```markdown
 ---
-id: D007
+id: D0007
 title: Use Postgres, not MongoDB
 status: accepted | proposed | obsolete
 date: 2026-04-15
@@ -523,18 +539,18 @@ explaining what replaced it. Never delete.
 
 ---
 
-## 12. `questions/Q<NNN>-<slug>.md`
+## 12. `questions/Q<NNNN>-<slug>.md`
 
 ```markdown
 ---
-id: Q007
+id: Q0007
 title: Does the investor want bulk CSV import for apartments?
 status: open | answered | obsolete
 raised: 2026-04-09
 raised-by: voice-agent
 answered: null
 answer-summary: null
-related-features: [F002]
+related-features: [F0002]
 blocks-phase: spec
 ---
 
@@ -545,7 +561,7 @@ spreadsheet would be amazing" but didn't specify format or frequency.
 
 ## Why it matters
 
-If yes, F002 needs CSV parsing logic. If no, F002 is simpler.
+If yes, F0002 needs CSV parsing logic. If no, F0002 is simpler.
 
 ## What we need
 
@@ -576,20 +592,22 @@ type: prototype-review | voice-interview | live-meeting | email | async-review |
 participants:
   - client: jane-smith
   - us: kaloian
-raw-attachments: feedback/attachments/2026-04-22-prototype-review/
+raw-attachments: [prototype-review-recording-2026-04-22]   # sources/ slugs — raw files live in external storage, never in the repo
 summary: >
   Client reviewed the prototype. Overall positive. Main concerns:
   apartment count input, property manager role scope.
 extracted-items:
   - type: feature-change
-    target: F002
+    target: F0002
     change: Include property manager role
     change-class: direct
+    review-tier: human            # v0.8; absent = human (fail-safe)
     status-in-diff: accepted
   - type: new-feature
-    target: F015
+    target: F0015
     change: Property manager dashboard
     change-class: direct
+    review-tier: human
     status-in-diff: rejected
     rejection-reason: Out of scope for v1
 status: pending | processed
@@ -601,6 +619,15 @@ status: pending | processed
 `processed` when the PM's line-item review is finalized and the file is
 committed. These are the only two values.
 
+**`review-tier` (v0.8):** `human | auto` per extracted item, assigned by the
+state-updater (vocabulary and assignment rules in CLAUDE.md "Review tiers" and
+the state-updater skill, Step 4c). Absent = `human` — the fail-safe direction.
+
+**`raw-attachments` (v0.8):** a list of `sources/` slugs. Transcripts,
+recordings, and other raw files live in external storage (e.g. Drive) and are
+registered as `sources/` entries; the repo holds only summaries, extracted
+items, and links. Legacy path values (pre-0.8) are read as-is.
+
 Feedback is **excluded from the trust-layer backfill** — it is immutable and is
 itself the source of provenance. Write-once: drafted by the state-updater,
 finalized after PM line-item review, committed alongside the entry and index
@@ -608,11 +635,11 @@ changes.
 
 ---
 
-## 14. `risks/K<NNN>-<slug>.md`
+## 14. `risks/K<NNNN>-<slug>.md`
 
 ```markdown
 ---
-id: K001
+id: K0001
 title: Backend cannot match prototype data shapes without rework
 status: open | mitigated | materialized | closed
 severity: low | medium | high
@@ -636,7 +663,7 @@ three scales don't map to each other. Closed risks stay in the repo (set
 
 ---
 
-## 15. `stakeholders/S<NNN>-<slug>.md`
+## 15. `stakeholders/S<NNNN>-<slug>.md`
 
 Named real humans at the client who matter to the project — distinct from
 `roles/` (product personas). In a company-brain these are the company's own
@@ -644,7 +671,7 @@ people and partners. Markdown with YAML frontmatter.
 
 ```markdown
 ---
-id: S001
+id: S0001
 name: Jane Chen
 title: Founder & CEO
 company: Acme Holdings
@@ -709,14 +736,14 @@ without opening files, plus the two semantic-link key pairs inside
 `references`/`referenced-by`.
 
 ```yaml
-schema-version: "0.7"
+schema-version: "0.8"
 generated-at: 2026-06-10T14:22:00Z
 project-id: acme-realestate
 entries:
 
-  - id: F002
+  - id: F0002
     type: feature
-    path: features/F002-bulk-import-apartments.yaml
+    path: features/F0002-bulk-import-apartments.yaml
     title: Bulk import apartments into a building
     status: approved
     priority: must-have
@@ -724,52 +751,10 @@ entries:
     references:
       roles: [investor, property-manager]
       entities: [building, apartment]
-      rules: [R001]
-      questions: [Q007]
+      rules: [R0001]
+      questions: [Q0007]
       sources: [pricing-sheet-2026]
-      derived-from: [F001]        # semantic link (optional)
+      derived-from: [F0001]        # semantic link (optional)
     referenced-by:
       flows: [add-first-building]
       contradicted-by: []         # semantic link (optional)
-
-  - id: R001
-    type: rule
-    path: rules/R001-apartment-count-any-positive-integer.yaml
-    title: Apartment count must accept any positive integer
-    status: active
-    severity: critical
-    confidence: verified
-    re-verify-after: 2026-12-01    # optional; staleness computed at read time
-    references:
-      entities: [building]
-    referenced-by:
-      features: [F001, F002]
-      flows: [add-first-building]
-
-  - id: S001
-    type: stakeholder
-    path: stakeholders/S001-jane-chen.md
-    title: Jane Chen — Founder & CEO
-    status: active
-    confidence: asserted
-    visibility: restricted        # brain mode only
-    flags: [is-decision-maker, is-economic-buyer, is-champion, is-interviewee]
-    references: {}
-    referenced-by: {}
-# ... one block per entry
-```
-
-**Per-entry fields:** `id`, `type`, `path`, `title`, `status`, `references`,
-`referenced-by` are always present. `priority`/`severity` appear only for types
-that carry them; `blocks-phase` only for questions; `confidence` on every entry;
-`re-verify-after` when set; `visibility` in brain mode.
-
-**Not in the index:** prose descriptions, full field lists, provenance history,
-acceptance criteria, test scenarios — all stay in the entry file.
-
-**Index patch mode (v0.7).** The state-updater never rewrites the whole file. It
-emits only the **full blocks of the entries it touched** (keyed by `id`) plus
-blocks for new entries; a deterministic merge script in `scripts/` swaps them in
-by id and refreshes `generated-at`. The LLM physically cannot corrupt entries it
-didn't emit. References are populated from structured fields only — prose
-mentions never appear in `referenced-by`.

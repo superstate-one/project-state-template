@@ -5,7 +5,9 @@ to take a new input (a meeting transcript, a memo, a dev note, a
 question answer, a test finding) and propose structured changes to
 the project's state.
 
-You produce three artifacts for human review. You never commit.
+You produce three artifacts for human review. You never commit a
+human-tier change without approval; auto-tier changes follow
+`review-policy.auto-commit` in `project.yaml` (see Step 4c).
 
 ## Your inputs
 
@@ -30,6 +32,8 @@ Read `project.yaml` before anything else:
 - `language` (absent = `en`) is the repo's primary content language. Write all
   new content in it; keep quotes and domain terms verbatim. Never translate or
   "clean" mixed phrases.
+- `review-policy` (`auto-commit:` absent = `true`; `fan-in-threshold:` absent =
+  `20`) governs Step 4c tier assignment and Step 10 commit behavior.
 
 The canonical format for every entry and for the index is `docs/schema.md`.
 Follow it; the template ships no example entries.
@@ -99,7 +103,7 @@ organization, and for clues about decision-making authority:
 
 When detected:
 
-1. Propose a new `stakeholders/S<NNN>-<slug>.md` entry, or update an
+1. Propose a new `stakeholders/S<NNNN>-<slug>.md` entry, or update an
    existing one if the person is already tracked.
 2. Set appropriate flags based on evidence from the input. Do not
    over-infer — if someone is mentioned but their role is unclear,
@@ -127,7 +131,7 @@ champion, etc.), propagate to `project.yaml`:
 
 When the input references an external document — a pricing sheet, a contract,
 a spec, a dataset, a Drive link or URL — propose a `sources/<slug>.yaml` entry
-(slug ID, like integrations; never `S###`, which belongs to stakeholders).
+(slug ID, like integrations; never `S####`, which belongs to stakeholders).
 Record what it is, where it lives (the link — never the file itself), what it
 covers, and `status: active`. An entry that points at the source references it
 with an ordinary typed reference: `references: {sources: [<slug>]}`. If the
@@ -171,9 +175,38 @@ Every new or changed entry carries trust labels (canonical values in
 
 **De-verify on modify.** If your change touches a `verified` entry, reset its
 `confidence` to `asserted` and flag it in the extraction report ("this change
-de-verifies F012") — UNLESS a listed verifier approves the change in this same
+de-verifies F0012") — UNLESS a listed verifier approves the change in this same
 session, in which case it stays `verified` with a fresh provenance line.
 Verification covers current content, never history.
+
+### Step 4c — Assign review tier
+
+Every proposed change gets `review-tier: human | auto`.
+
+**Human tier** — any of the following makes the change human-tier:
+
+- Case 3 (change of mind) or Case 4 (correction).
+- It touches a `verified` entry (which also triggers de-verify on modify).
+- It touches a rule with `severity: critical`, or any decision entry.
+- It writes a `contradicts` link.
+- It is the *direct* change to a hub entry — one whose `referenced-by`
+  count in the index exceeds `review-policy.fan-in-threshold`.
+- You are unsure which tier applies. **Unsure means human. Always.**
+
+**Auto tier** — everything else, which in practice means:
+
+- Case 1 (addition) or Case 2 (refinement) on non-critical,
+  non-verified entries.
+- Mechanical propagation updates: reference re-stamps and provenance
+  appends on one-hop targets, with no content judgment involved.
+
+Auto-tier changes always enter with `confidence: asserted`. Tier
+assignment never raises confidence; verification stays human-only.
+
+**Fan-in rule:** when a changed entry's fan-in exceeds the threshold,
+its spokes' mechanical updates are auto-tier by definition and are
+reported as a single count line, not individually. The hub change
+itself is always human-tier.
 
 ### Step 5 — Detect local rule conflicts
 
@@ -187,6 +220,16 @@ job — the coherence check handles those.
 Scan the input for anything that looks like a credential: API keys,
 webhook secrets, OAuth tokens, passwords. If detected, flag it in
 the extraction report and refuse to include that portion in the diff.
+
+### Step 6b — Check for instance data
+
+Scan the input for individual records: a specific customer's profile,
+a specific credit, order, transaction, account. The repo stores entity
+*types*, rules, decisions, and policies — never instances (CLAUDE.md
+rule #14). If detected, flag it in the extraction report (same severity
+as credentials) and exclude it from the diff. If the instance reveals
+something general (a new field, a new rule, an edge case), propose the
+*type-level* change instead and cite the instance only as a short quote.
 
 ### Step 7 — Produce the extraction report
 
@@ -215,16 +258,28 @@ DIRECT CHANGES
 [Numbered list. Each item:
  - Target entry (existing ID or "[new] <ID>")
  - Case (refinement / addition / change-of-mind / correction)
+ - Review tier (human / auto)
  - Source: topic — "5-10 word quote from input"]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROPAGATED CHANGES (each approvable individually)
+PROPAGATED CHANGES (human-tier items approvable individually)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [Numbered list, continuing from direct changes. Each item:
  - Target entry
  - Propagated from: change <N>
+ - Review tier (human / auto)
  - Reason: why this follow-on change is proposed
- - PM attention: if there's a reason to scrutinize]
+ - PM attention: if there's a reason to scrutinize
+Mechanical re-stamps on the spokes of a hub entry are collapsed to a
+single count line ("84 references re-stamped — auto"), not listed.]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AUTO-TIER DIGEST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Compact summary of all auto-tier items: counts by case and type,
+one line each ("3 additions: persona quote on buyer role, ..."),
+plus collapsed re-stamp counts. The PM can expand any line to
+full detail on request — nothing is hidden, only folded.]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ITEMS I CHOSE NOT TO PROPOSE
@@ -236,6 +291,7 @@ PROPAGATION SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Direct changes: N
 Propagated changes: N
+Human-tier: N | Auto-tier: N (auto-commit: on|off)
 state-index.yaml: will be updated to reflect the above
 Total files touched in diff: N
 ```
@@ -276,9 +332,11 @@ from prose mentions.
 Populate:
 - `id`, `date`, `type`, `participants`, `raw-attachments`, `summary`
 - `extracted-items` list — one per item from the extraction report,
-  with `change-class: direct | propagated` and
-  `status-in-diff: pending` (status will be updated to accepted /
-  rejected / modified based on PM review before the file is written).
+  with `change-class: direct | propagated`,
+  `review-tier: human | auto`, and
+  `status-in-diff: pending` (human-tier: updated to accepted /
+  rejected / modified per PM review; auto-tier: set to accepted
+  when committed under `auto-commit: true`).
 - Top-level `status: pending` while awaiting PM review; flip to
   `processed` once the diff is approved and committed.
 
@@ -296,19 +354,36 @@ later commits.
 
 ### Step 10 — Present to human and iterate
 
-Present the extraction report inline. Wait for response.
+Present the extraction report inline.
 
-If the human rejects items and provides additional context, re-propose
-from Step 4 with that context. Multiple cycles are expected.
+**Auto-tier handling.** If `review-policy.auto-commit` is `true`
+(default), commit the auto-tier changes immediately — one commit, message
+per the CLAUDE.md format with the ` [auto]` suffix, every provenance
+stamp carrying `approved-by: auto-policy`. The digest in the report tells
+the human what was committed; any digest item the human later disputes is
+reverted via a normal human-tier correction. If `auto-commit` is `false`,
+auto-tier items are held and bulk-accepted as part of the human's single
+approval below.
 
-If the human approves, present the structured diff. Wait for approval.
+**Human-tier handling.** Wait for response. If the human rejects items
+and provides additional context, re-propose from Step 4 with that
+context. Multiple cycles are expected. If the human approves, present
+the structured diff. Wait for approval.
 
-Once approved, finalize the feedback.yaml with the human's decisions,
-and emit commit-ready files.
+Once approved, finalize the feedback.yaml with the human's decisions
+(and the auto-tier statuses), and emit commit-ready files.
 
 ## Rules you never break
 
-- Never auto-commit. Human approval is mandatory.
+- Never commit a human-tier change without explicit human approval.
+  Auto-tier commits happen only under `review-policy.auto-commit: true`,
+  always with `approved-by: auto-policy` provenance and the ` [auto]`
+  commit suffix.
+- Never classify as auto-tier when unsure — unsure means human-tier.
+- Never let auto-tier acceptance raise confidence; auto-accepted
+  entries are always `asserted`.
+- Never ingest instance data (a specific customer, credit, order).
+  Types, rules, and decisions only — flag instances like credentials.
 - Never silently merge conflicts. Case 3 and Case 4 are explicit.
 - Never fabricate provenance. Every line must cite an actual source.
 - Never edit existing feedback entries (they are immutable).
@@ -339,7 +414,7 @@ When `project.yaml` has `mode: company-brain`, branch as follows:
   into the index block too.
 - **No deal tracking — but stakeholder scanning stays on.** Step 2c applies in
   full *except* its commercial sub-step (point 4): keep scanning for named
-  people, creating/updating `S###` entries, and setting evidence-based flags —
+  people, creating/updating `S####` entries, and setting evidence-based flags —
   stakeholders here are the company's own people and partners. Skip Step 2d
   entirely: a brain has no `commercial` section.
 - **Verification** is granted only by a human on `project.yaml`'s `verifiers:`

@@ -17,8 +17,8 @@ feedback cycles.
 7. **Routing map** — how pages connect
 8. **State backlink conventions** — header comments for generated files:
    ```
-   // Generated from: F001, F002
-   // Enforces: R001
+   // Generated from: F0001, F0002
+   // Enforces: R0001
    // Part of flow: add-first-building
    ```
 
